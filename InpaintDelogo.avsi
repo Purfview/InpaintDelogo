@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.24                                                                                  #
+#   Version: 1.25                                                                                  #
 ##================================================================================================##
 
 
@@ -44,6 +44,7 @@
 # Version 1.23 : [non public] Added auto generation of a dynamic mask with ClipBlend (aka "DynMask=3").
 #                             New parameters: "Dyn3Seq", "ClpBlend", "DynPostTune", "Dyn3buffer".
 # Version 1.24 : 2020/11/28.  Various tweaks. "Show" 3 & 4. Updated the manual with the new stuff.
+# Version 1.25 : 2021/08/13.  Fixed/expanded "DynTune".
 
 
 ##================================================================================================##
@@ -321,7 +322,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     3 - Inflate by 3 pixels.
 
 
-# Int "DynTune"     :  Tunes up a dynamic mask for "DynMask=2 & 3". Binarization threshold. (from -6 to 6; default: 0).
+# Int "DynTune"     :  Tunes up a dynamic mask for "DynMask=2 & 3". Binarization threshold. (from -10 to 10; default: 0).
 #                     Higher values -> mask expands more into the darker areas of video. (0=200, increments by -5/5)
 
 
@@ -726,7 +727,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugdippm    = (dippm        < 0 || dippm        >  3) ? true : false
     bugoppm     = (oppm         < 0 || oppm         >  3) ? true : false
     bugdynmask  = (dynmask      < 0 || dynmask      >  3) ? true : false
-    bugdyntune  = (dyntune     < -5 || dyntune      >  5) ? true : false
+    bugdyntune  = (dyntune    < -10 || dyntune      > 10) ? true : false
     bugdynflate = (dyninflate   < 0 || dyninflate   >  3) ? true : false
     buggrainpp  = (grainpp      < 0 || grainpp      >  3) ? true : false
     buginflate  = (inflate      < 0 || inflate      >  2) ? true : false
@@ -786,7 +787,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugdippm          == false  , """"diPPm" value must be between 0 and 3.""")
     assert        ( bugoppm           == false  , """"oPPm" value must be between 0 and 3.""")
     assert        ( bugdynmask        == false  , """"DynMask" value must be between 0 and 3.""")
-    assert        ( bugdyntune        == false  , """"DynTune" value must be between -6 and 6.""")
+    assert        ( bugdyntune        == false  , """"DynTune" value must be between -10 and 10.""")
     assert        ( bugdynflate       == false  , """"DynInflate" value must be between 0 and 3.""")
     assert        ( buggrainpp        == false  , """"GrainPP" value must be between 0 and 3.""")
     assert        ( buginflate        == false  , """"Inflate" value must be between 0 and 2.""")
