@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.27                                                                                  #
+#   Version: 1.28                                                                                  #
 ##================================================================================================##
 
 
@@ -47,6 +47,7 @@
 # Version 1.25 : 2021/08/13.  Fixed/expanded "DynTune".
 # Version 1.26 : 2021/08/13.  "DynInflate" up to 4px.
 # Version 1.27 : 2021/08/13.  "Show" 5 outputs full size Dynamic PP mask.
+# Version 1.28 : 2021/08/13.  Changed "Dyn3Seq" & "ClpBlend" range limit. "Interp" 4.
 
 
 ##================================================================================================##
@@ -232,7 +233,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 # Int "Interp"      :  Interpolation amount to reduce remnants/artifacts of the logo after deblend.
 #                     Basically, a compromise between deblend artifacts and interpolation artifacts.
 #                     Interpolation artifacts are most visible when logo is crossing high contrast areas.
-#                     (0 - Disabled. Max - 3). (default: 2).
+#                     (0 - Disabled. Max - 4). (default: 2).
 
 
 # Int "IntSpd"      :  Speed of "Interp".
@@ -342,14 +343,15 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
                  #   DynMask=3:   #
                  #================#
 
-# Int "Dyn3Seq"     :  Parameter for "DynMask=3".  (from 20 to 9999)
+# Int "Dyn3Seq"     :  Parameter for "DynMask=3".  (from 10 to 9999)
 #                     Sets how many frames the logo is in a location.
+#                     For subtitles set duration of the shortest subtitle.
 
 
 # Int "ClpBlend"    :  Parameter for "DynMask=3".
 #                     Sets how many frames will be blended to help to eliminate non-logo areas.
 #                     More frames blended - more chance for non-logo areas to disappear from the mask.
-#                     Disabling it disables "DynPostTune" automatically. Must be less than "Dyn3Seq"-9.
+#                     Disabling it disables "DynPostTune" automatically. Must be less than "Dyn3Seq"-1.
 #                     0 - Disabled (default), for fine tuning.
 
 
@@ -722,7 +724,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugreanalyze= (reanalyze    < 0 || reanalyze    >  1) ? true : false
     bugdeep     = (deep         < 0 || deep         >  4) ? true : false
     bugfrs      = (frs          < 0 || frs          >  3) ? true : false
-    buginterp   = (interp       < 0 || interp       >  3) ? true : false
+    buginterp   = (interp       < 0 || interp       >  4) ? true : false
     buginterpm  = (interpm     < -1 || interpm      >  2) ? true : false
     bugdpp      = (dpp          < 0 || dpp          >  8) ? true : false
     bugdipp     = (dipp         < 0 || dipp         >  8) ? true : false
@@ -760,8 +762,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugcombo5   = (IsString(mask) && dynmask==0) ? eval(""" bugcombo5 = (findstr(mask,":") == 0) ? true : false return bugcombo5 """) : false
     bugcombo6   = (ClpBlend   == 0 && show != 3 && dynmask == 3 || DynPostTune == 0 && show != 3 && dynmask == 3) ? true : false
     bugcombo7   = (mode   == "inpaint" && edgePP  !=  0        ) ? true : false
-    bugDyn3Seq     = (Dyn3Seq     < 20 || Dyn3Seq  >       9999) ? true : false
-    bugClpBlend    = (ClpBlend    < 10 || ClpBlend >= Dyn3Seq-9) ? true : false
+    bugDyn3Seq     = (Dyn3Seq     < 10 || Dyn3Seq  >       9999) ? true : false
+    bugClpBlend    = (ClpBlend     < 8 || ClpBlend >= Dyn3Seq-1) ? true : false
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
     bugDyn3buffer  = (Dyn3buffer   < 0 || Dyn3buffer       >  1) ? true : false
 
@@ -782,7 +784,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugreanalyze      == false  , """"ReAnalyze" value must be between 0 and 1.""")
     assert        ( bugdeep           == false  , """"Deep" value must be between 0 and 4.""")
     assert        ( bugfrs            == false  , """"FrS" value must be between 0 and 3.""")
-    assert        ( buginterp         == false  , """"Interp" value must be between 0 and 3.""")
+    assert        ( buginterp         == false  , """"Interp" value must be between 0 and 4.""")
     assert        ( buginterpm        == false  , """"InterpM" value must be between -1 and 2.""")
     assert        ( bugdpp            == false  , """"dPP" value must be between 0 and 8.""")
     assert        ( bugdipp           == false  , """"diPP" value must be between 0 and 8.""")
@@ -825,7 +827,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     x           = width(clp)
     y           = height(clp)
-    interp      = (interp == 1) ? 0.84 : (interp == 2) ? 0.73 : (interp == 3) ? 0.59 :  0
+    interp      = (interp == 1) ? 0.84 : (interp == 2) ? 0.73 : (interp == 3) ? 0.59 : (interp == 4) ? 0.40 :  0
     frx         = (frs    == 1) ?   -5 : (frs    == 2) ?  -10 : (frs    == 3) ?  -30 : -1
     tunelow     = int((-1*otune)*10+140)
     tunehigh    = int((-1*otune)*10+141)
