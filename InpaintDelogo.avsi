@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.26                                                                                  #
+#   Version: 1.27                                                                                  #
 ##================================================================================================##
 
 
@@ -46,6 +46,7 @@
 # Version 1.24 : 2020/11/28.  Various tweaks. "Show" 3 & 4. Updated the manual with the new stuff.
 # Version 1.25 : 2021/08/13.  Fixed/expanded "DynTune".
 # Version 1.26 : 2021/08/13.  "DynInflate" up to 4px.
+# Version 1.27 : 2021/08/13.  "Show" 5 outputs full size Dynamic PP mask.
 
 
 ##================================================================================================##
@@ -406,6 +407,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 # Int "oPPm"        :  Adds smooth borders to the opaque mask, used for "oPP" post-process,
 #                     it will blend in an inpainted area into the surrounding.(default: 3).
+#                     Auto-disabled if "oPP"=0.
 #
 #                     0 - Disabled.
 #                     1 - 3 smooth pixels added.
@@ -455,7 +457,8 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                             Delogoed + Dynamic mask
 #                             PostProcessed + Dynamic PP mask
 #                     3 - Only for "DynMask=3". For fine tuning. Pre TrimergageFX(). No resizing.
-#                     4 - Outputs the DynamicMask. No resizing.
+#                     4 - Outputs the DynamicMask (Loc area). No resizing.
+#                     5 - Outputs full sized Dynamic PP mask. No resizing.
 
 
 # Int "mShow"       :  Shows you selected mask. Overlays "black hole" over clip.
@@ -738,7 +741,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugotune    = (otune       < -4 || otune        >  4) ? true : false
     bugitune    = (itune       < -4 || itune        >  4) ? true : false
     bugamix     = (amix        < -5 || amix         >  5) ? true : false
-    bugshow     = (show         < 0 || show         >  4) ? true : false
+    bugshow     = (show         < 0 || show         >  5) ? true : false
     bugmshow    = (mshow        < 0 || mshow        >  8) ? true : false
     bugrsize    = (rsize        < 1 || rsize        >  9) ? true : false
     bugautomask = (automask     < 0 || automask     >  1) ? true : false
@@ -798,7 +801,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugotune          == false  , """"oTune" value must be between -4 and 4.""")
     assert        ( bugitune          == false  , """"iTune" value must be between -4 and 4.""")
     assert        ( bugamix           == false  , """"aMix" value must be between -5 and 5.""")
-    assert        ( bugshow           == false  , """"Show" value must be between 0 and 4.""")
+    assert        ( bugshow           == false  , """"Show" value must be between 0 and 5.""")
     assert        ( bugmshow          == false  , """"mShow" value must be between 0 and 8.""")
     assert        ( bugrsize          == false  , """"rSize" value must be between 1 and 9.""")
     assert        ( bugautomask       == false  , """"Automask" value must be between 0 and 1.""")
@@ -969,6 +972,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        (bugcombo96 == false,  """"Show=3" is only for the "DynMask=3".""")
     bugcombo95  = (show == 4 && dynmask == 0) ? true : false
     assert        (bugcombo95 == false,  """"Show=4" is only for the dynamic masks.""")
+    bugcombo94  = (show == 5 && dynmask == 0) ? true : false
+    assert        (bugcombo95 == false,  """"Show=5" is only for the dynamic masks.""")
 
     Clipmask    = (maskClip == true) ? eval("""
                   Clipmask = (maskdynamic == true) ? mask.ConvertToYV12(matrix="PC.709") : mask.ConvertToRGB32
@@ -1587,7 +1592,16 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
                   DynamicMask.ConvertToY8.ConvertToYV12
 
-                  """) : Eval("""
+                  """) : (show == 5) ? Eval("""
+
+
+                  # "Show" 5 #
+                  #==========#
+
+                  BlackClip = BlankClip(clp)
+                  show4 = InpaintMpp.ConvertToY8.ConvertToYV12
+                  show4out = (Loc == "-0,-0,-0,-0" || Loc == "0,0,-0,-0") ? show4 : BlackClip.Overlay(show4,x=a,y=b)
+                  return show4out """) : Eval("""
 
 
                   # FinalOut #
