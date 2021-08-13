@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.25                                                                                  #
+#   Version: 1.26                                                                                  #
 ##================================================================================================##
 
 
@@ -45,6 +45,7 @@
 #                             New parameters: "Dyn3Seq", "ClpBlend", "DynPostTune", "Dyn3buffer".
 # Version 1.24 : 2020/11/28.  Various tweaks. "Show" 3 & 4. Updated the manual with the new stuff.
 # Version 1.25 : 2021/08/13.  Fixed/expanded "DynTune".
+# Version 1.26 : 2021/08/13.  "DynInflate" up to 4px.
 
 
 ##================================================================================================##
@@ -320,6 +321,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     1 - Inflate by 1 pixel.
 #                     2 - Inflate by 2 pixels.
 #                     3 - Inflate by 3 pixels.
+#                     4 - Inflate by 4 pixels.
 
 
 # Int "DynTune"     :  Tunes up a dynamic mask for "DynMask=2 & 3". Binarization threshold. (from -10 to 10; default: 0).
@@ -728,7 +730,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugoppm     = (oppm         < 0 || oppm         >  3) ? true : false
     bugdynmask  = (dynmask      < 0 || dynmask      >  3) ? true : false
     bugdyntune  = (dyntune    < -10 || dyntune      > 10) ? true : false
-    bugdynflate = (dyninflate   < 0 || dyninflate   >  3) ? true : false
+    bugdynflate = (dyninflate   < 0 || dyninflate   >  4) ? true : false
     buggrainpp  = (grainpp      < 0 || grainpp      >  3) ? true : false
     buginflate  = (inflate      < 0 || inflate      >  2) ? true : false
     bugiInflate = (iTinflate    < 0 || iTinflate    >  3) ? true : false
@@ -788,7 +790,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugoppm           == false  , """"oPPm" value must be between 0 and 3.""")
     assert        ( bugdynmask        == false  , """"DynMask" value must be between 0 and 3.""")
     assert        ( bugdyntune        == false  , """"DynTune" value must be between -10 and 10.""")
-    assert        ( bugdynflate       == false  , """"DynInflate" value must be between 0 and 3.""")
+    assert        ( bugdynflate       == false  , """"DynInflate" value must be between 0 and 4.""")
     assert        ( buggrainpp        == false  , """"GrainPP" value must be between 0 and 3.""")
     assert        ( buginflate        == false  , """"Inflate" value must be between 0 and 2.""")
     assert        ( bugiInflate       == false  , """"iTinflate" value must be between 0 and 3.""")
@@ -1599,7 +1601,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
 ##================================================================================================##
-#   DynMask 3:                                                                                     #
+#   TrimergageFX:                                                                                     #
 ##================================================================================================##
 
 
@@ -1690,13 +1692,13 @@ function MTballoonPX(clip clp, int "mode") {
     \             (mode ==  1) ? px1  :
     \             (mode ==  2) ? px2  :
     \             (mode ==  3) ? px3  :
-    \             (mode ==  4) ? px3  :
+    \             (mode ==  4) ? px4  :
     \             (mode == 99) ? kill :
     \             (mode == 88) ? kill2:
     \             (mode == -1) ? mpx1 :
     \             (mode == -2) ? mpx2 :
-    \             (mode == -3) ? mpx1 :
-    \             (mode == -4) ? mpx2 : nop
+    \             (mode == -3) ? mpx3 :
+    \             (mode == -4) ? mpx4 : nop
 
     return balloon
 }
