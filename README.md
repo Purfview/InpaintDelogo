@@ -16,3 +16,15 @@
   Inpainting refers to the application of sophisticated algorithms to reconstruct of lost
  or deteriorated parts of images or videos.
  </code></pre>
+ 
+<pre><code> 
+Requirements:
+Avisynth+ ( https://github.com/AviSynth/AviSynthPlus ) or Avisynth v2.6.
+AvsInpaint ( https://github.com/pinterf/AvsInpaint ).
+
+Optional requirements:
+GrainFactory3 (for "GrainPP", http://avisynth.nl/index.php/GrainFactory3 ).
+MaskTools2    (for "DynMask>0", https://github.com/pinterf/masktools ).
+ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
+RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
+ </code></pre>
