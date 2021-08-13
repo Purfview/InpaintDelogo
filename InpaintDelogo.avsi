@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.28                                                                                  #
+#   Version: 1.29                                                                                  #
 ##================================================================================================##
 
 
@@ -48,6 +48,7 @@
 # Version 1.26 : 2021/08/13.  "DynInflate" up to 4px.
 # Version 1.27 : 2021/08/13.  "Show" 5 outputs full size Dynamic PP mask.
 # Version 1.28 : 2021/08/13.  Changed "Dyn3Seq" & "ClpBlend" range limit. "Interp" 4.
+# Version 1.29 : 2021/08/13.  "mShow" 9.
 
 
 ##================================================================================================##
@@ -465,6 +466,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 # Int "mShow"       :  Shows you selected mask. Overlays "black hole" over clip.
 #                     Shows in "Show = 2" too.
+#                     Dynamic mask (in "Inpaint" mode) should work with 2 and 9.
 #
 #                     0 - Disabled        (default).
 #
@@ -477,8 +479,9 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #
 #                       These, overlay on top of the original clip:
 #                     4 - Base mask.
-#                     5 - Deblend PP mask  (post-process mask for deblended area).
+#                     5 - Deblend PP mask  (post-process mask for deblend area).
 #                     6 - oTune Mask       (not for "Inpaint" mode).
+#                     9 - Opaque PP mask   (post-process mask for inpaint area).
 
 
 # Int "rSize"       :  Resolution of "Show" & "Automask" output. (Default: 4)
@@ -744,7 +747,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugitune    = (itune       < -4 || itune        >  4) ? true : false
     bugamix     = (amix        < -5 || amix         >  5) ? true : false
     bugshow     = (show         < 0 || show         >  5) ? true : false
-    bugmshow    = (mshow        < 0 || mshow        >  8) ? true : false
+    bugmshow    = (mshow        < 0 || mshow        >  9) ? true : false
     bugrsize    = (rsize        < 1 || rsize        >  9) ? true : false
     bugautomask = (automask     < 0 || automask     >  1) ? true : false
     bugkillshape= (killshape    < 0 || killshape    >  1) ? true : false
@@ -755,7 +758,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugedgewide = (edgewide     < 0 || edgewide     >  1) ? true : false
     bugintspd   = (intspd       < 1 || intspd       >  3) ? true : false
     bugmode     = (mode         != "inpaint" && mode != "deblend" && mode != "both" ) ? true : false
-    bugcombo1   = (mode         == "inpaint" && mshow   >  4) ? true : false
+    bugcombo1   = (mode         == "inpaint" && mshow   >  4 && mshow <  9) ? true : false
     bugcombo2   = (mode         != "inpaint" && analyze == 3 && FrB == FrW) ? true : false
     bugcombo3   = (mode         != "inpaint" && killshape == 1) ? true : false
     bugcombo4   = (IsString(mask) && dynmask==0) ? eval(""" bugcombo4 = (mask == "") ? true : false return bugcombo4 """) : false
@@ -1477,6 +1480,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   \        (mshow == 6) ? inYV12.   Overlay(blankblk, Mask=OpaqueTune.ConvertToY8(matrix="PC.709")) :
                   \        (mshow == 7) ? delogopp9.Overlay(blankblk, Mask=InterpMask.ConvertToY8(matrix="PC.709")) :
                   \        (mshow == 8) ? delogopp9.Overlay(blankblk, Mask=EdgeMask  .ConvertToY8(matrix="PC.709")) :
+                  \        (mshow == 9) ? inYV12.   Overlay(blankblk, Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
                   \                       delogopp9
                   return helper """) : nop
 
