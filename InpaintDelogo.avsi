@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.29                                                                                  #
+#   Version: 1.30                                                                                  #
 ##================================================================================================##
 
 
@@ -49,6 +49,7 @@
 # Version 1.27 : 2021/08/13.  "Show" 5 outputs full size Dynamic PP mask.
 # Version 1.28 : 2021/08/13.  Changed "Dyn3Seq" & "ClpBlend" range limit. "Interp" 4.
 # Version 1.29 : 2021/08/13.  "mShow" 9.
+# Version 1.30 : 2021/08/13.  Fixed TV levels in "Show" 5 mask.
 
 
 ##================================================================================================##
@@ -461,7 +462,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                             PostProcessed + Dynamic PP mask
 #                     3 - Only for "DynMask=3". For fine tuning. Pre TrimergageFX(). No resizing.
 #                     4 - Outputs the DynamicMask (Loc area). No resizing.
-#                     5 - Outputs full sized Dynamic PP mask. No resizing.
+#                     5 - Outputs full sized Dynamic PP mask in Y8. No resizing.
 
 
 # Int "mShow"       :  Shows you selected mask. Overlays "black hole" over clip.
@@ -1604,8 +1605,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   # "Show" 5 #
                   #==========#
 
-                  BlackClip = BlankClip(clp)
-                  show4 = InpaintMpp.ConvertToY8.ConvertToYV12
+                  BlackClip = BlankClip(clp, pixel_type="Y8").ColorYUV(levels="tv->pc")
+                  show4 = InpaintMpp.ConvertToY8
                   show4out = (Loc == "-0,-0,-0,-0" || Loc == "0,0,-0,-0") ? show4 : BlackClip.Overlay(show4,x=a,y=b)
                   return show4out """) : Eval("""
 
