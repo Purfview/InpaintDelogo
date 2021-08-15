@@ -347,13 +347,14 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 # Int "Dyn3Seq"     :  Parameter for "DynMask=3".  (from 10 to 9999)
 #                     Sets how many frames the logo is in a location.
-#                     For subtitles set duration of the shortest subtitle.
+#                     For subtitles set duration of the shortest subtitle or shorter subs will disappear from the mask.
 
 
 # Int "ClpBlend"    :  Parameter for "DynMask=3".
 #                     Sets how many frames will be blended to help to eliminate non-logo areas.
 #                     More frames blended - more chance for non-logo areas to disappear from the mask.
 #                     Disabling it disables "DynPostTune" automatically. Must be less than "Dyn3Seq"-1.
+#                     For subtiles "Dyn3Seq"-2 should be best.
 #                     0 - Disabled (default), for fine tuning.
 
 
@@ -367,6 +368,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 
 # Int "Dyn3buffer"  :  Parameter for "DynMask=3".
+#                     Ignore this if "ClpBlend" is less than "53". ( https://forum.doom9.org/showthread.php?p=1928621#post1928621 )
 #                     Buffer for internal TrimergageFX(). Disable it for the script previewing or preview will be very slow.
 #                     Enable it for encoding or AvS will work very slow, and it must go together
 #                     with RequestLinear(rlim=ClpBlend+1,clim=ClpBlend+1) placed after the source filter.
@@ -1606,9 +1608,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   #==========#
 
                   BlackClip = BlankClip(clp, pixel_type="Y8").ColorYUV(levels="tv->pc")
-                  show4 = InpaintMpp.ConvertToY8
-                  show4out = (Loc == "-0,-0,-0,-0" || Loc == "0,0,-0,-0") ? show4 : BlackClip.Overlay(show4,x=a,y=b)
-                  return show4out """) : Eval("""
+                  show5 = InpaintMpp.ConvertToY8
+                  show5out = (Loc == "-0,-0,-0,-0" || Loc == "0,0,-0,-0") ? show5 : BlackClip.Overlay(show5,x=a,y=b)
+                  return show5out """) : Eval("""
 
 
                   # FinalOut #
@@ -1622,7 +1624,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
 ##================================================================================================##
-#   TrimergageFX:                                                                                     #
+#   TrimergageFX:                                                                                  #
 ##================================================================================================##
 
 
