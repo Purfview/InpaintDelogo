@@ -27,4 +27,5 @@ GrainFactory3 (for "GrainPP", http://avisynth.nl/index.php/GrainFactory3 ).
 MaskTools2    (for "DynMask>0", https://github.com/pinterf/masktools ).
 ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
 RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
+RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
  </code></pre>
