@@ -19,7 +19,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.31                                                                                  #
+#   Version: 1.32                                                                                  #
 ##================================================================================================##
 
 
@@ -51,6 +51,8 @@
 # Version 1.29 : 2021/08/13.  "mShow" 9.
 # Version 1.30 : 2021/08/13.  Fixed TV levels in "Show" 5 mask.
 # Version 1.31 : 2021/08/22.  New: "KillBlobs", "preBlobs", "RePass". Updated: "DynInflate", "KillNoise".
+# Version 1.32 : 2021/08/25.  Fixed illogical Y8/Y12 conversions in the dynamic mask routines. ~20% faster.
+#                             External dynamic mask excpected to be Y8.
 
 
 ##================================================================================================##
@@ -139,7 +141,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #
 #                      Clip based mask:
 #                      "mask" accepts clip input, resolution must be same as "Loc" area.
-#                      Dynamic mask expected to be full range YV12 with a mask in Y.
+#                      Dynamic mask expected to be full range Y8 or will be converted.
 #                      Static mask must be one frame clip otherwise it will be treated as a dynamic mask.
 
 
@@ -364,7 +366,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     Minus sign is to indicate a method.
 #                     Two methods: Negative -> mt_expand> mt_inpand> KillBlobs,
 #                                  Positive -> mt_expand> KillBlobs> mt_inpand (bit more effective).
-#                     'Stronger' and 'more effective' is less safer for negative "KillBlobs".
+#                     'Stronger' and 'more effective' is less safe for negative "KillBlobs".
 #
 #                     0 - Disabled  (default).
 #                    -1 - 'both' mode.
@@ -413,7 +415,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #
 #                     0 - Disabled  (default).
 #                     1 - Re-pass once.
-#                     2 - Re-pass twice.
+#                     2 - Re-pass twice (insignificantly less artifacts).
 
 
                  #==================#
@@ -1043,7 +1045,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        (bugcombo95 == false,  """"Show=5" is only for the dynamic masks.""")
 
     Clipmask    = (maskClip == true) ? eval("""
-                  Clipmask = (maskdynamic == true) ? mask.ConvertToYV12(matrix="PC.709") : mask.ConvertToRGB32
+                  Clipmask = (maskdynamic == true) ? mask.ConvertToY8(matrix="PC.709") : mask.ConvertToRGB32
                   return Clipmask """) : nop
 
 
@@ -1453,9 +1455,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     DynamicMask = (automask == 0 && DynMask  != 0) ? eval("""
                   DynamicMask = (mode == "inpaint" && DynMask == 1) ? Clipmask :
-                  \             (mode == "both"    && DynMask == 2) ? LogoDeblend.Greyscale.mt_binarize(threshold=dyntunelow)  :
-                  \             (mode == "inpaint" && DynMask == 2) ? inYV12     .Greyscale.mt_binarize(threshold=dyntunelow)  :
-                  \             (mode == "inpaint" && DynMask == 3) ? DynamicMsk3.TrimergageFX(Seq=Dyn3Seq, ClpBlend=ClpBlend).ConvertToYV12 : nop
+                  \             (mode == "both"    && DynMask == 2) ? LogoDeblend.Greyscale.mt_binarize(threshold=dyntunelow).ConvertToY8  :
+                  \             (mode == "inpaint" && DynMask == 2) ? inYV12     .Greyscale.mt_binarize(threshold=dyntunelow).ConvertToY8  :
+                  \             (mode == "inpaint" && DynMask == 3) ? DynamicMsk3.TrimergageFX(Seq=Dyn3Seq, ClpBlend=ClpBlend) : nop
                   DynamicMask = (KillBlobs  != 0) ? DynamicMask.KillBalloonFX(KillBlobs, preBlobs) : DynamicMask
                   DynamicMask = (KillNoise  != 0) ? DynamicMask.MTballoonPX(KillNoise) : DynamicMask
                   DynamicMask = (RePass     == 1) ? DynamicMask.DynRePassFX(Dyn3Seq, ClpBlend, KillNoise) : DynamicMask
@@ -1472,13 +1474,13 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
     LogoBoth    = (automask == 0 && mode != "inpaint") ? eval("""
-                  LogoBoth    = (DynMask != 0) ? LogoDeblend.InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+                  LogoBoth    = (DynMask != 0) ? LogoDeblend.InpaintLogo(DynamicMask.ConvertToYV12, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
                   \                              LogoDeblend.InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
                   return LogoBoth """) : nop
 
 
     LogoInpaint = (automask == 0 && mode == "inpaint") ? eval("""
-                  LogoInpaint = (DynMask != 0) ? inYV12.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+                  LogoInpaint = (DynMask != 0) ? inYV12.ppFX(prePP).InpaintLogo(DynamicMask.ConvertToYV12, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
                   \                              inYV12.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
                   return LogoInpaint """) : nop
 
@@ -1661,7 +1663,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   # "Show" 4 #
                   #==========#
 
-                  DynamicMask.ConvertToY8.ConvertToYV12
+                  DynamicMask
 
                   """) : (show == 5) ? Eval("""
 
