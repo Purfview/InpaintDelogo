@@ -52,7 +52,7 @@
 # Version 1.30 : 2021/08/13.  Fixed TV levels in "Show" 5 mask.
 # Version 1.31 : 2021/08/22.  New: "KillBlobs", "preBlobs", "RePass". Updated: "DynInflate", "KillNoise".
 # Version 1.32 : 2021/08/25.  Fixed illogical Y8/YV12 conversions in the dynamic mask routines. ~20% faster.
-#                             External dynamic mask excpected to be Y8.
+#                             External dynamic mask expected to be Y8.
 
 
 ##================================================================================================##
