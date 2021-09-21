@@ -30,7 +30,7 @@ ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
 RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
 RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
 
-'Extract / SubsMask2Img()' requirements:
+Extract/SubsMask2Img() requirements:
 RT_Stats ( http://avisynth.nl/index.php/RT_Stats ).
 GScript  ( http://avisynth.nl/index.php/GScript ).
 GRunT    ( http://avisynth.nl/index.php/GRunT ).
