@@ -29,3 +29,5 @@ ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
 RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
 RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
  </code></pre>
+ 
+ https://forum.doom9.org/showthread.php?t=176860
