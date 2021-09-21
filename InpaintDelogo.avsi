@@ -13,13 +13,14 @@
 #  InpaintDelogo is an advanced logo and watermark removal function using inpainting and deblending
 # with an adjustable fine process to hide artifacts and get best delogo results.
 # Can remove opaque, transparent, semi-transparent and some dynamic logos from video.
+# Can be used to remove hardcoded subtitles or extract them to images for OCR.
 
 #  Inpainting refers to the application of sophisticated algorithms to reconstruct of lost
 # or deteriorated parts of images or videos.
 
 
 ##================================================================================================##
-#   Version: 1.33                                                                                  #
+#   Version: 1.34                                                                                  #
 ##================================================================================================##
 
 
@@ -55,6 +56,9 @@
 #                             External dynamic mask expected to be Y8.
 # Version 1.33 : 2021/08/31.  New: "DynMask3H", "ModeSH", "TuneH1", TuneH2", "TuneH3", "KillNoiseH, "rePassH".
 #                             Updated: "Show", "DynTune".
+# Version 1.34 : 2021/09/21.  New: "Extract" parameter to extract subtitles to images for OCR.
+#                             New: 'SubsMask2Img()' func (mod of StainlessS's 'DetSub_Extract()').
+#                             Note: This version needs AviSynth+.
 
 
 ##================================================================================================##
@@ -62,7 +66,7 @@
 ##================================================================================================##
 
 
-# Requirements   : Avisynth+ ( https://github.com/AviSynth/AviSynthPlus ) or Avisynth v2.6.
+# Requirements   : AviSynth+ ( https://github.com/AviSynth/AviSynthPlus ) or AviSynth v2.6.
 #                  AvsInpaint ( https://github.com/pinterf/AvsInpaint ).
 #
 # Optional requirements:
@@ -71,7 +75,13 @@
 #                : ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
 #                : RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
 #                : RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
-
+#
+# 'Extract / SubsMask2Img()' requirements:
+#                : RT_Stats ( http://avisynth.nl/index.php/RT_Stats ).
+#                : GScript  ( http://avisynth.nl/index.php/GScript ).
+#                : GRunT    ( http://avisynth.nl/index.php/GRunT ).
+#                : MaskTools2
+#                : ClipBlend
 
 ##================================================================================================##
 #   InpaintLoc() manual:                                                                           #
@@ -94,7 +104,7 @@
 
 
 ##================================================================================================##
-#   InpaintDelogo() manual:                                                                        #
+#   InpaintDelogo()  manual:                                                                       #
 ##================================================================================================##
 
 
@@ -360,7 +370,8 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                                  Positive -> mt_inpand>mt_expand.
 #                     Negative method removes blobs completely, but if artifact is touching logo/sub then it will be removed too.
 #                     Positive method is safer, but leaves edges of the artifacts.
-#                     Thicker logo/subs needs higher setting to make logo disappear, what is left is treated as artifact.
+#                     Inner workings: Thicker logo/subs needs higher setting to make logo disappear, what is left is treated as artifact.
+#                     Don't use Negative method if there is no thick halo.
 
 
 # Int "preBlobs"    :  Reduce sponginess of the mask for "KillBlobs". (from -2 to 2; default: 0).
@@ -368,8 +379,9 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     Minus sign is to indicate a method.
 #                     Two methods: Negative -> mt_expand> mt_inpand> KillBlobs,
 #                                  Positive -> mt_expand> KillBlobs> mt_inpand (bit more effective).
-#                     'Stronger' and 'more effective' is less safe for negative "KillBlobs".
-#
+#                     'Stronger' and 'more effective' is less safe for Negative "KillBlobs".
+#                     Don't use if there is no thick halo.
+
 #                     0 - Disabled  (default).
 #                    -1 - 'both' mode.
 #                    -2 - 'square' mode (bit stronger).
@@ -377,10 +389,16 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     2 - 'square' mode (bit stronger).
 
 
+# Int "Extract"     :  Extracts subtitles to images from a dynamic mask with SubsMask2Img() function (0 - Disabled, 1 - Enabled; default: 0).
+#                     Works only with "DynMask" through "Show=4".
+#                     When enabled the script will work till extraction is done, so use only after a dynamic mask is all set.
+#                     Makes stuff work in one go, but it's much slower, see SubsMask2Img() manual somewhere bellow!
+
+
                  #   DynMask=3:   #
                  #================#
 
-# Int "Dyn3Seq"     :  Parameter for "DynMask=3".  (from 10 to 9999)
+# Int "Dyn3Seq"     :  Parameter for "DynMask=3".  (from 10 to 9999, default: 12)
 #                     Sets how many frames the logo is in a location.
 #                     For subtitles set duration of the shortest subtitle or shorter subs will disappear from the mask.
 
@@ -418,7 +436,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #
 #                     0 - Disabled  (default).
 #                     1 - Re-pass once.
-#                     2 - Re-pass twice (insignificantly less artifacts).
+#                     2 - Re-pass twice (bit less artifacts).
 
 
                  #   DynMask3H>0: #
@@ -472,7 +490,6 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 # Int "rePassH"     :  Parameter for "DynMask3H".
 #                     Re-pass/pass temporal+KillNoiseH routines to reduce artifacts in "DynMask3H" mask. (0 - Disabled, 1 - Enabled; default: 0).
 #                     Wasn't found useful in the final result (on the short sample).
-
 
 
                  #==================#
@@ -657,6 +674,57 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 
 ##================================================================================================##
+#   SubsMask2Img()  manual:                                                                        #
+##================================================================================================##
+
+
+# NOTE              : The subs detection looks only at the middle of video (5% width x 50% height)!
+#                     Clip expected to be full range Y8 or will be converted.
+
+
+# Int "Extract"     :  This is only InpaintDelogo() parameter!!!
+#                     Makes stuff work in one go, but it's much slower that using an intermediate file.
+#                     It will pass SubsMask2Img() parameters from InpaintDelogo() func to SubsMask2Img().
+#                     When enabled the script will work till extraction is done, so use only after a dynamic mask is all set.
+#
+#                     Fast way:  InpaintDelogo() ->  encode the mask to a lossless file -> SubsMask2Img().
+#                     Good lossless x264 settings for a mask: "--preset ultrafast --range pc --cabac -q0".
+
+
+# String "ImgDir"   :  Path to directory where output images are to be written. MUST be set to existing directory.
+
+
+# Float "CorrTh"    :  Correlation threshold to detect where subtitles in adjacent frames are the same (from 0.65 to 0.95; default: 0.8).
+#                     Used to detect where to split apart non similar subs.
+#                     Higher - detection more sensitive to the changes in the frames.
+#                     Probably no need to touch it.
+
+
+# Int "SubTune"     :  Post-blend binarization threshold [subtitle range to a single frame] (from 200 to 254; default: 210).
+#                     Max = maximum artifacts reduction, if there are, but parts of the letters can disappear too.
+#                     Probably no need to touch it.
+
+
+# Int "SubMinDur"   :  Minimum subtitle duration threshold in frames (from 1 to 20; default = "Dyn3Seq" or 12).
+#                     Stuff from the bellow ranges won't be extracted.
+
+
+# Int "SubSuspect"  :  Suspicious subtitle duration threshold in frames (from 0 to 40; default: 0).
+#                     Extracted images from the bellow or equal ranges will have "_" prefix in the filenames.
+#                     For fast examination of the extracted images.
+#                     Recommended setting: 3 frames lower than FPS of video.
+
+
+# Int "ImgType"     :  Image type to write ("png" or "tif"; default: "png").
+
+# Int "ImgInflate"  :  Inflate sub mask by 1 pixel. (from 0 to 1; default: 0).
+
+# Int "ImgInvert"   :  Invert images. (from 0 to 1; default: 0).
+
+# Int "ImgSize"     :  Upsize images by that multiplier. (from 1 to 4; default: 1).
+
+
+##================================================================================================##
 #   The simplified pseudo scheme of parameters logic (v1.20):                                      #
 ##================================================================================================##
 
@@ -708,7 +776,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 
 ##================================================================================================##
-#   Function with all parameters (for advanced users):                                             #
+#   Functions with all parameters (for advanced users):                                            #
 ##================================================================================================##
 /*
 
@@ -724,11 +792,15 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Turbo=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
 \ DynMask=0, DynTune=200, DynInflate=0, maskPatch="",
 \ KillBlobs=0, preBlobs=0, KillNoise=0, rePass=0,
-\ Dyn3Seq=300, ClpBlend=0, DynPostTune=0, Dyn3buffer=1,
+\ Dyn3Seq=12, ClpBlend=0, DynPostTune=0, Dyn3buffer=1,
 \ DynMask3H=0, ModeSH=1, TuneH1=0, TuneH2=0, TuneH3=0, KillNoiseH=0, rePassH=0,
+\ Extract=0,
 \ GrainPP=0,
 \ Sharpness=45, PreBlur=6.5, PostBlur=4.0, Radius=8.0,
 \ Show=0, mShow=0, rSize=4)
+
+
+SubsMask2Img(ImgDir="", CorrTh=0.8, SubTune=210, SubMinDur=12, SubSuspect=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1)
 
 */
 
@@ -748,7 +820,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "DynTune", int "DynInflate", int "KillNoise", string "maskPatch",
 \                        int "ClpBlend", int "DynPostTune", int "Dyn3Seq", int "Dyn3buffer",
 \                        int "KillBlobs", int "preBlobs", int "rePass",
-\                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH")
+\                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
+\                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize")
 
 {
 
@@ -826,11 +899,22 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     edgepos     = default (edgepos     , 0 )
     edgewide    = default (edgewide    , 1 )
     intspd      = default (intspd      , 1 )
-    Dyn3Seq     = default (Dyn3Seq   , 300 )
+    Dyn3Seq     = default (Dyn3Seq    , 12 )
     ClpBlend    = default (ClpBlend    , 0 )
     DynPostTune = (ClpBlend == 0) ? default (DynPostTune , 0 ) :
     \                               default (DynPostTune , 1 )
     Dyn3buffer  = default (Dyn3buffer  , 1 )
+
+    Extract     = Default(Extract     ,    0)
+    CorrTh      = Default(CorrTh      ,  0.8)
+    SubTune     = Default(SubTune     ,  210)
+    SubMinDur   = Default(SubMinDur   , Dyn3Seq)
+    SubSuspect  = Default(SubSuspect  ,    0)
+    ImgType     = Default(ImgType     ,"png")
+    ImgInflate  = Default(ImgInflate  ,    0)
+    ImgInvert   = Default(ImgInvert   ,    0)
+    ImgSize     = Default(ImgSize     ,    1)
+    ImgDir      = Default(ImgDir      ,   "")
 
 
     # Terminador de cucarachas #
@@ -894,6 +978,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugcombo8   = (dynmask   != 3      && repass  !=  0        ) ? true : false
     bugcombo9   = (dynmask3h == 0      && show    ==  6        ) ? true : false
     bugcombo10  = (dynmask3h != 0      && dynmask !=  3        ) ? true : false
+    bugcombo11  = (Extract   == 1      && show    !=  4        ) ? true : false
     bugDyn3Seq     = (Dyn3Seq     < 10 || Dyn3Seq  >       9999) ? true : false
     bugClpBlend    = (ClpBlend     < 8 || ClpBlend >= Dyn3Seq-1) ? true : false
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
@@ -915,6 +1000,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugcombo8         == false  , """"RePass" parameter is only for "DynMask=3" method.""")
     assert        ( bugcombo9         == false   , """"Show=6" parameter is only for "DynMask3H" mask.""")
     assert        ( bugcombo10        == false   , """"DynMask3H" parameter is only for "DynMask=3" method.""")
+    assert        ( bugcombo11        == false   , """Subtitles extraction works only with "Show=4" parameter.""")
     assert        ( buganalyze        == false  , """"Analyze" value must be between 1 and 4.""")
     assert        ( bugreanalyze      == false  , """"ReAnalyze" value must be between 0 and 1.""")
     assert        ( bugdeep           == false  , """"Deep" value must be between 0 and 4.""")
@@ -1767,7 +1853,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   # "Show" 4 #
                   #==========#
 
-                  DynamicMask
+                  (Extract == 0) ? DynamicMask : DynamicMask.SubsMask2Img(ImgDir=ImgDir, CorrTh=CorrTh, SubTune=SubTune, SubMinDur=SubMinDur, SubSuspect=SubSuspect, ImgType=ImgType, ImgInflate=ImgInflate, ImgInvert=ImgInvert, ImgSize=ImgSize)
 
                   """) : (show == 5) ? Eval("""
 
@@ -2105,9 +2191,7 @@ function ppFX(clip clp, int "mode") {
 
 
 function InpaintLoc ( clip clp, string "loc")
-
 {
-
     loc         = default (loc,  "")
     x           = width   (clp)
     y           = height  (clp)
@@ -2142,5 +2226,210 @@ function InpaintLoc ( clip clp, string "loc")
 
     out         = clp.converttoRGB32.layer(hightlight.Mask(blankclip(hightlight, color=$444444)),x=a,y=b)
 
+    return out
+}
+
+
+##================================================================================================##
+#   Subtitles Extractor functions:                                                                 #
+##================================================================================================##
+
+# Mod of StainlessS's 'DetSub_Extract.avs' - https://forum.doom9.org/showthread.php?p=1950193
+Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize") {
+    StartTime   = TimerFX()
+    CorrTh      = Default(CorrTh      ,  0.8)
+    SubTune     = Default(SubTune     ,  210)
+    SubMinDur   = Default(SubMinDur   ,   12)
+    SubSuspect  = Default(SubSuspect  ,    0)
+    ImgType     = Default(ImgType     ,"png")
+    ImgInflate  = Default(ImgInflate  ,    0)
+    ImgInvert   = Default(ImgInvert   ,    0)
+    ImgSize     = Default(ImgSize     ,    1)
+    ImgDir      = Default(ImgDir      ,   "")
+
+    Assert (!(CorrTh      <  0.65 || CorrTh      >  0.95), """"CorrTh" value must be between 0.65 and 0.95.""")
+    Assert (!(SubTune     <   200 || SubTune     >   254), """"SubTune" value must be between 200 and 254.""")
+    Assert (!(SubMinDur   <     1 || SubMinDur   >    20), """"SubMinDur" value must be between 1 and 20.""")
+    Assert (!(SubSuspect  <     0 || SubSuspect  >    40), """"SubSuspect" value must be between 0 and 40.""")
+    Assert ( (ImgType    == "png" || ImgType    == "tif"), """"ImgType" string must be 'png' or 'tif'.""")
+    Assert (!(ImgInflate   <    0 || ImgInflate  >     1), """"ImgInflate" value must be between 0 and 1.""")
+    Assert (!(ImgInvert    <    0 || ImgInvert   >     1), """"ImgInvert" value must be between 0 and 1.""")
+    Assert (!(ImgSize      <    1 || ImgSize     >     4), """"ImgSize" value must be between 1 and 4.""")
+
+    Assert (ImgDir!="","""Specify "ImgDir" (folder must exist)!"""+Chr(10)+"""Can use '.\' for current directory.""")
+    ImgDir = RT_GetFullPathname(ImgDir)
+    ImgDir = ImgDir.RevStr
+    while  (ImgDir.FindStr("\")==1 || ImgDir.FindStr("/")==1) { ImgDir=ImgDir.MidStr(2)}
+    ImgDir = ImgDir.RevStr
+    Assert (ImgDir.Exist,""""ImgDir" folder not found!""")
+
+    RangeDB = ("~SubsMask2Img_RangeDB_"+RT_LocalTimeString+".DB").RT_GetFullPathName
+    FrameDB = ("~SubsMask2Img_FrameDB_"+RT_LocalTimeString+".DB").RT_GetFullPathName
+    FC      = clp.FrameCount
+    VW      = clp.Width
+    VH      = clp.Height
+    CropW   = int((VW / 2) *0.95)
+    CropH   = int((VH / 2) *0.50)
+    inY8    = clp.ConvertToY8()
+
+
+    # Detect if sub is on individual frames, and write FrameDB: #
+    #===========================================================#
+
+    RT_DBaseAlloc(FrameDB,FC,"i")
+    VFX1="""
+        n = current_frame
+        Status = RT_DBaseGetField(FrameDB,n,0)
+        if(Status == 0) {  # Unknown Status
+            Status = crop(CropW,CropH,-1*CropW,-1*CropH).AverageLuma.Sign
+            if(Status == 1) { RT_DBaseSet(FrameDB,n,Status) }
+        }
+        Return Last
+    """
+    Parse = inY8.GScriptClip(VFX1, local=true, args="FrameDB,CropW,CropH", after_frame=true)
+    Parse.RT_ForceProcess
+
+
+    # Split contiguous subs, and write RangeDB: #
+    #===========================================#
+
+    RT_DBaseAlloc(RangeDB,0,"ii")   # fields, 0=StartFrameNo, 1=EndFrameNo
+    SplitCnt = 0
+    MultiSubStart = -1               # Not currently within Subtitle range
+
+    Corr_BelowTh_Max    = -1.0
+    Corr_BelowTh_Max_Fr = -1
+    Corr_AboveTh_Min    = 1.0
+    Corr_AboveTh_Min_Fr = -1
+
+    for(n=0,FC) {                    # Scan & split Subtitle ranges [might not have clean frames between them]
+        Status = (n >= FC) ? 0 : RT_DBaseGetField(FrameDB,n,0)
+        Close  = (MultiSubStart >= 0 && Status != 1)   # If we were scanning subs sequence but this one is invalid, then we will close.
+        CloseCorr = False
+        if(Status == 1) {            # Valid Subtitle Frame ?
+            if(MultiSubStart < 0) {  # n new MultiSub : New start of possibly non-separated sub
+                MultiSubStart = n
+            } else {                 # already inside MultiSub sequence
+                Corr  = RT_LumaCorrelation(inY8, inY8, n=n-1, n2=n)
+                Close = (Corr < CorrTh)
+                CloseCorr = (Corr < CorrTh)
+                if(CloseCorr) {
+                    checkA = Corr_BelowTh_Max
+                    Corr_BelowTh_Max=Max(Corr_BelowTh_Max,Corr)
+                    if(checkA != Corr_BelowTh_Max) {
+                        Corr_BelowTh_Max_Fr = n
+                    }
+                } else {
+                    checkB = Corr_AboveTh_Min
+                    Corr_AboveTh_Min=Min(Corr_AboveTh_Min,Corr)
+                    if(checkB != Corr_AboveTh_Min) {
+                        Corr_AboveTh_Min_Fr = n
+                    }
+                }
+            }
+        }
+        if(Close) {                  # We were scanning sequence and either, this frame is not sub OR sub split found.
+            RT_DBaseAppend(RangeDB, MultiSubStart, n-1)    # n is start of next new or split sequence or end of clip
+            MultiSubStart = (Status==1) ? n : -1
+        }
+    }
+
+
+    # Extracting images: #
+    #====================#
+
+    NSubs = RT_DBaseRecords(RangeDB) # Number of SEPARATE INDIVIDUAL Subtitles
+    ESubs = NSubs
+    SSubs = 0
+    fps   = clp.FrameRate
+
+    for(i=0,NSubs-1) {
+        SubStart = RT_DBaseGetField(RangeDB,i,0)
+        SubEnd   = RT_DBaseGetField(RangeDB,i,1)
+        SubDur   = SubEnd - SubStart + 1
+        if(SubDur >= SubMinDur && SubDur > SubSuspect) {
+            FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
+            OneF1 = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1).mt_binarize(SubTune)
+            OneF2 = (ImgInflate ==  0) ? OneF1 : OneF1.MTballoonPX(1)
+            OneF3 = (ImgInvert  ==  0) ? OneF2 : OneF2.Invert
+            OneF4 = (ImgType == "png") ? OneF3 : OneF3.ConvertToRGB24
+            OneF5 = (ImgSize ==     1) ? OneF4 : OneF4.PointResize(VW*ImgSize,VH*ImgSize)
+            OneF5.ImageWriter(ImgDir+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+        } else if(SubDur >= SubMinDur) {
+            FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
+            OneF2 = (ImgInflate ==  0) ? OneF1 : OneF1.MTballoonPX(1)
+            OneF3 = (ImgInvert  ==  0) ? OneF2 : OneF2.Invert
+            OneF4 = (ImgType == "png") ? OneF3 : OneF3.ConvertToRGB24
+            OneF5 = (ImgSize ==     1) ? OneF4 : OneF4.PointResize(VW*ImgSize,VH*ImgSize)
+            OneF5.ImageWriter(ImgDir+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+            SSubs = SSubs+1
+        } else {
+            ESubs = ESubs-1
+        }
+    }
+
+    TSubs = NSubs - ESubs
+    RT_FileDelete(FrameDB)
+    RT_FileDelete(RangeDB)
+    RunTime = TimerFX(StartTime)
+
+    out = Messageclip(RT_String("""Possible subtitles detected: %d"""+
+                              \ """\nSuspicious ('SubSuspect'=%d): %d"""+
+                              \ """\nTrash ('SubMinDur'=%d): %d"""+
+                              \ """\nSubtitle images extracted: %d"""+
+                              \ """\n=========================================="""+
+                              \ """\nMin Correlation Above Th. : %f"""+
+                              \ """\nSet Correlation Threshold : %f"""+
+                              \ """\nMax Correlation Below Th. : %f"""+
+                              \ """\n=========================================="""+
+                              \ """\nFrame No. of Min Correlation Above Th. : %d"""+
+                              \ """\nFrame No. of Max Correlation Below Th. : %d"""+
+                              \ """\n=========================================="""+
+                              \ """\nTime elapsed: %s""", NSubs,SubSuspect,SSubs,SubMinDur,TSubs,ESubs,Corr_AboveTh_Min,CorrTh,Corr_BelowTh_Max,Corr_AboveTh_Min_Fr,Corr_BelowTh_Max_Fr,RunTime), text_color=color_goldenrod)
+    return out
+}
+
+function Frame2TimeFX(int frame, float fps) {
+     msTime = round(frame * 1000 / fps)
+
+    _s  = msTime / 1000
+    _ms = msTime % 1000
+    _m  = _s / 60
+    _s  = _s % 60
+    _h  = _m / 60
+    _m  = _m % 60
+
+    hh  = string(_h,  "%02.0f")
+    mm  = string(_m,  "%02.0f")
+    ss  = string(_s,  "%02.0f")
+    ms  = string(_ms, "%03.0f")
+
+    timeStr = hh+"_"+mm+"_"+ss+"_"+ms
+    return timeStr
+}
+
+function TimerFX(int "startTime") {
+    startTime = default(startTime, 0)
+
+    a = Value(Time("%#S"))
+    b = Value(Time("%#M")) *60
+    c = Value(Time("%#H")) *3600
+    x = int(a+b+c)
+
+    s = (startTime == 0) ? x : x - startTime
+    s = (s < 0) ? 86400 - startTime + x : s
+
+    hours   = floor(s /3600)
+    s1      = s - hours *3600
+    minutes = floor(s1 /60)
+    seconds = s1 - minutes *60
+
+    hh = String(hours,   "%02.0f")
+    mm = String(minutes, "%02.0f")
+    ss = String(seconds, "%02.0f")
+
+    timeMs  = x
+    timeStr = hh+":"+mm+":"+ss
+    out = (startTime == 0) ? timeMs : timeStr
     return out
 }
