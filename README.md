@@ -12,6 +12,7 @@
   InpaintDelogo is an advanced logo and watermark removal function using inpainting and deblending
  with an adjustable fine process to hide artifacts and get best delogo results.
  Can remove opaque, transparent, semi-transparent and some dynamic logos from video.
+ Can be used to remove hardcoded subtitles or extract them to images for OCR.
 
   Inpainting refers to the application of sophisticated algorithms to reconstruct of lost
  or deteriorated parts of images or videos.
@@ -28,6 +29,13 @@ MaskTools2    (for "DynMask>0", https://github.com/pinterf/masktools ).
 ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
 RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
 RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
+
+'Extract / SubsMask2Img()' requirements:
+RT_Stats ( http://avisynth.nl/index.php/RT_Stats ).
+GScript  ( http://avisynth.nl/index.php/GScript ).
+GRunT    ( http://avisynth.nl/index.php/GRunT ).
+MaskTools2
+ClipBlend
  </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
