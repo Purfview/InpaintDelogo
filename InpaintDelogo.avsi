@@ -59,6 +59,7 @@
 # Version 1.34 : 2021/09/21.  New: "Extract" parameter to extract subtitles to images for OCR.
 #                             New: 'SubsMask2Img()' func (mod of StainlessS's 'DetSub_Extract()').
 #                             Note: This version needs AviSynth+.
+# Version 1.35 : 2021/09/23.  Fixed: Bug with "TuneH1".
 
 
 ##================================================================================================##
@@ -76,7 +77,7 @@
 #                : RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
 #                : RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
 #
-# 'Extract / SubsMask2Img()' requirements:
+# Extract/SubsMask2Img() requirements:
 #                : RT_Stats ( http://avisynth.nl/index.php/RT_Stats ).
 #                : GScript  ( http://avisynth.nl/index.php/GScript ).
 #                : GRunT    ( http://avisynth.nl/index.php/GRunT ).
@@ -800,7 +801,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Show=0, mShow=0, rSize=4)
 
 
-SubsMask2Img(ImgDir="", CorrTh=0.8, SubTune=210, SubMinDur=12, SubSuspect=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1)
+SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=210, SubMinDur=12, SubSuspect=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1 )
 
 */
 
@@ -1626,7 +1627,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
     dMsk3HaloS  = (automask == 0 && DynMask == 3 && mode == "inpaint" && DynMask3H != 0 && ModeSH == 1) ? eval("""
-                  wMsk       = inYV12Grey.mt_binarize(DynTune).ConvertToY8.MTballoonPX(TuneH1)
+                  wMsk       = inYV12Grey.mt_binarize(DynTune).ConvertToY8.MTballoon2PX(TuneH1)
                   bMsk       = inYV12Grey.mt_binarize(DynMask3H).ConvertToY8.invert
                   halo       = bMsk.mt_logic(wMsk, mode="and")
                   white      = BlankClip(inYV12,color=$FFFFFF, pixel_type="Y8").ColorYUV(levels="tv->pc")
@@ -1996,6 +1997,28 @@ function MTballoonPX(clip clp, int "mode") {
     return balloon
 }
 
+function MTballoon2PX(clip clp, int "mode") {
+    mode = default (mode, 0)
+
+    px1 = clp.mt_expand(mode="square", chroma="none")
+    px2 = px1.mt_expand(mode="square", chroma="none")
+    px3 = px2.mt_expand(mode="square", chroma="none")
+    px4 = px3.mt_expand(mode="square", chroma="none")
+    px5 = px4.mt_expand(mode="square", chroma="none")
+    px6 = px5.mt_expand(mode="square", chroma="none")
+    px7 = px6.mt_expand(mode="square", chroma="none")
+
+    balloon = (mode ==  0) ? clp :
+    \         (mode ==  1) ? px1 :
+    \         (mode ==  2) ? px2 :
+    \         (mode ==  3) ? px3 :
+    \         (mode ==  4) ? px4 :
+    \         (mode ==  5) ? px5 :
+    \         (mode ==  6) ? px6 :
+    \         (mode ==  7) ? px7 : nop
+
+    return balloon
+}
 
 ##================================================================================================##
 #   Balloons simulator:                                                                            #
