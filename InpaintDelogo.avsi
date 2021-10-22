@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.37                                                                                  #
+#   Version: 1.38                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.38 : 2021/10/22.  Fixed: Bug with "SubSuspect" parameter.
 # Version 1.37 : 2021/10/07.  New: "DynMaskUp" parameter.
 # Version 1.36 : 2021/10/04.  Added auto generation of the dynamic mask for subtitles with halo (aka "DynMask=4").
 #                             Updated: "KillNoise", and some other tweaks.
@@ -2430,6 +2431,7 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
             OneF5.ImageWriter(ImgDir+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
         } else if(SubDur >= SubMinDur) {
             FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
+            OneF1 = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1).mt_binarize(SubTune)
             OneF2 = (ImgInflate ==  0) ? OneF1 : OneF1.MTballoonPX(1)
             OneF3 = (ImgInvert  ==  0) ? OneF2 : OneF2.Invert
             OneF4 = (ImgType == "png") ? OneF3 : OneF3.ConvertToRGB24
