@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.40 : 2021/10/28.  Some speed optimizations. AvsInpaint v1.3 is required.
 # Version 1.39 : 2021/10/23.  Various improvements.
 # Version 1.38 : 2021/10/22.  Fixed: Bug with "SubSuspect" parameter.
 # Version 1.37 : 2021/10/07.  New: "DynMaskUp" parameter.
@@ -221,8 +222,8 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                         These two frames must be set with "FrB" & "FrW" parameters and optional "FrS".
 #
 #                     4 -   Manual analysis. Good (in most cases) for the basemask generation with "Automask".
-#                          For delogo not good, use only if there is no white/bright frame in video and
-#                          method "1" is worse. Will not deblend colored parts of the logo.
+#                          For delogo not good, use only on white logos and if there is no white/bright frame in video and method "1" is worse.
+#                          Will not deblend colored parts of the logo.
 #                          Setup is similar as method "3", just without "FrW" (it will be ignored).
 
 
@@ -726,13 +727,13 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 # String "ImgDir"   :  Path to directory where output images are to be written. MUST be set to existing directory.
 
 
-# Float "CorrTh"    :  Correlation threshold to detect where subtitles in adjacent frames are the same (from 0.65 to 0.95; default: 0.8).
+# Float "CorrTh"    :  Correlation threshold to detect where subtitles in adjacent frames are the same (from 0.5 to 0.95; default: 0.8).
 #                     Used to detect where to split apart non similar subs.
 #                     Higher - detection more sensitive to the changes in the frames.
 #                     Probably no need to touch it.
 
 
-# Int "SubTune"     :  Post-blend binarization threshold [subtitle range to a single frame] (from 200 to 254; default: 235).
+# Int "SubTune"     :  Post-blend binarization threshold [subtitle range to a single frame] (from 100 to 254; default: 235).
 #                     Max = maximum artifacts reduction, if there are, but parts of the letters can disappear too.
 #                     Probably no need to touch it.
 
@@ -833,7 +834,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Show=0, mShow=0, rSize=4)
 
 
-SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=210, SubMinDur=12, SubSuspect=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1 )
+SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=235, SubMinDur=12, SubSuspect=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1 )
 
 */
 
@@ -1673,7 +1674,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     DynamicMsk4 = (automask == 0 && DynMask == 4 && mode == "inpaint" && DynMaskUp > -2) ? eval("""
                   wMsk4       = inY8.mt_binarize(DynTune)
                   bMsk4       = inY8.mt_binarize(DynMask4H).mt_inpand(mode="square").mt_expand(mode="both")  # inp/exp to destroy corner connections between background and text
-                  bBoxMsk4    = BlankClip(inY8, width=inY8.width-16, height=inY8.height-16).AddBorders(8,8,8,8,$FFFFFF).ColorYUV(levels="tv->pc")
+                  bBoxMsk4    = BlankClip(inY8, width=inY8.width-16, height=inY8.height-16, Color_yuv=$000000).AddBorders(8,8,8,8,$FFFFFF)
                   bMsk4Cln1   = bBoxMsk4.mt_hysteresis(bMsk4)
                   DynamicMsk4 = (Show == 6) ? bMsk4 : wMsk4.mt_makediff(bMsk4Cln1).mt_binarize()
                   return DynamicMsk4 """) : nop
@@ -1691,7 +1692,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inSplineMsk4uf = inY8.RemoveGrain(2).RemoveGrain(2).Spline16Resize(inY8.width*Abs(DynMaskUp), inY8.height*Abs(DynMaskUp)).mt_binarize(DynTune).RemoveGrain(2).RemoveGrain(2).mt_inpand(mode="both").mt_inpand(mode="square")
                   wMsk4uf        = inSplineMsk4uf.mt_hysteresis(inSyncMsk4uf2)
                   bMsk4uf        = inSyncMsk4uf1.mt_binarize(DynMask4H)
-                  bBoxMsk4uf     = BlankClip(inSyncMsk4uf1, width=inSyncMsk4uf1.width-32, height=inSyncMsk4uf1.height-32).AddBorders(16,16,16,16,$FFFFFF).ColorYUV(levels="tv->pc")
+                  bBoxMsk4uf     = BlankClip(inSyncMsk4uf1, width=inSyncMsk4uf1.width-32, height=inSyncMsk4uf1.height-32, Color_yuv=$000000).AddBorders(16,16,16,16,$FFFFFF)
                   bMsk4Cln1uf    = bBoxMsk4uf.mt_hysteresis(bMsk4uf)
                   DynamicMsk4uf  = (Show == 6) ? bMsk4uf : wMsk4uf.mt_makediff(bMsk4Cln1uf).mt_binarize().mt_expand(mode="square").mt_expand(mode="square").mt_inpand(mode="square").mt_inpand(mode="square")
                   return DynamicMsk4uf """) : nop
@@ -1701,7 +1702,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   wMsk3HS    = inY8.mt_binarize(DynTune).MTballoon2PX(TuneH1)
                   bMsk3HS    = inY8.mt_binarize(DynMask3H).Invert
                   halo3HS    = bMsk3HS.mt_logic(wMsk3HS, mode="and")
-                  white3HS   = BlankClip(inY8,color=$FFFFFF, pixel_type="Y8").ColorYUV(levels="tv->pc")
+                  white3HS   = BlankClip(inY8, Color_yuv=$FFFFFF)
                   dMsk3HaloS = (TuneH1 == 0) ? bMsk3HS : halo3HS.mt_logic(white3HS, mode="xor")
                   return dMsk3HaloS """) : nop
 
@@ -1740,13 +1741,13 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
     LogoBoth    = (automask == 0 && mode != "inpaint" && Show < 3) ? eval("""
-                  LogoBoth    = (DynMask != 0) ? LogoDeblend.InpaintLogo(DynamicMask.ConvertToYV12, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+                  LogoBoth    = (DynMask != 0) ? LogoDeblend.InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
                   \                              LogoDeblend.InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
                   return LogoBoth """) : nop
 
 
     LogoInpaint = (automask == 0 && mode == "inpaint" && Show < 3) ? eval("""
-                  LogoInpaint = (DynMask != 0) ? inYV12.ppFX(prePP).InpaintLogo(DynamicMask.ConvertToYV12, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+                  LogoInpaint = (DynMask != 0) ? inYV12.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
                   \                              inYV12.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
                   return LogoInpaint """) : nop
 
@@ -1937,7 +1938,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   # "Show" 5 #
                   #==========#
 
-                  BlackClip = BlankClip(clp, pixel_type="Y8").ColorYUV(levels="tv->pc")
+                  BlackClip = BlankClip(clp, Color_yuv=$000000, pixel_type="Y8")
                   show5 = InpaintMpp.ConvertToY8
                   show5out = (Loc == "-0,-0,-0,-0" || Loc == "0,0,-0,-0") ? show5 : BlackClip.Overlay(show5,x=a,y=b)
                   return show5out
@@ -1992,7 +1993,7 @@ function PatchFuncFX(clip clp, string "patch") {
     patch       = default (patch, "")
 
     ImgmaskFX   = ImageSource(patch,0,0).Levels(127,1,128,0,255).ConvertToY8(matrix="PC.709")
-    WhiteClip   = BlankClip(clp,color=$FFFFFF, pixel_type="Y8").ColorYUV(levels="tv->pc")
+    WhiteClip   = BlankClip(clp, Color_yuv=$FFFFFF, pixel_type="Y8")
     PatchFX     = clp.mt_merge(WhiteClip, ImgmaskFX, chroma="none")
     return PatchFX
 }
@@ -2217,7 +2218,7 @@ function KillBalloonFX(clip c, int "mode", int "pre", int "h2", int "h3") {
     \     (h2 == 4) ? msk.mt_expand(mode="square").mt_expand(mode="square").mt_expand(mode="square").mt_expand(mode="square") : nop
 
     # Replaced v1.33, few % faster.
-    #blk = BlankClip(clp, pixel_type="Y8").ColorYUV(levels="tv->pc")
+    #blk = BlankClip(clp, Color_yuv=$000000, pixel_type="Y8")
     #ooo = clp.Overlay(blk, mask=msk)
     ooo = clp.mt_makediff(msk).mt_binarize()
 
@@ -2338,8 +2339,8 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     ImgSize     = Default(ImgSize     ,    1)
     ImgDir      = Default(ImgDir      ,   "")
 
-    Assert (!(CorrTh      <  0.65 || CorrTh      >  0.95), """"CorrTh" value must be between 0.65 and 0.95.""")
-    Assert (!(SubTune     <   200 || SubTune     >   254), """"SubTune" value must be between 200 and 254.""")
+    Assert (!(CorrTh      <  0.50 || CorrTh      >  0.95), """"CorrTh" value must be between 0.65 and 0.95.""")
+    Assert (!(SubTune     <   100 || SubTune     >   254), """"SubTune" value must be between 200 and 254.""")
     Assert (!(SubMinDur   <     1 || SubMinDur   >    20), """"SubMinDur" value must be between 1 and 20.""")
     Assert (!(SubSuspect  <     0 || SubSuspect  >    40), """"SubSuspect" value must be between 0 and 40.""")
     Assert ( (ImgType    == "png" || ImgType    == "tif"), """"ImgType" string must be 'png' or 'tif'.""")
