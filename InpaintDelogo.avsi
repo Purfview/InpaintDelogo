@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.40                                                                                #
+#   Version: 1.41                                                                                #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.41 : 2021/11/03.  Fixed: "Show=1" was broken with "Deblend" since v1.18.
 # Version 1.40 : 2021/10/28.  Some speed optimizations. AvsInpaint v1.3 is required.
 # Version 1.39 : 2021/10/23.  Various improvements.
 # Version 1.38 : 2021/10/22.  Fixed: Bug with "SubSuspect" parameter.
@@ -75,22 +76,19 @@
 ##================================================================================================##
 
 
-# Requirements   : AviSynth+ ( https://github.com/AviSynth/AviSynthPlus ) or AviSynth v2.6.
-#                  AvsInpaint ( https://github.com/pinterf/AvsInpaint ).
+# Core requirements:
+#  AviSynth+ v3.6.2 or later ( https://github.com/AviSynth/AviSynthPlus ).
+#  AvsInpaint v1.3 or later  ( https://github.com/pinterf/AvsInpaint ).
 
-# Optional requirements:
-#                : GrainFactory3 (for "GrainPP", http://avisynth.nl/index.php/GrainFactory3 ).
-#                : MaskTools2    (for "DynMask>0", https://github.com/pinterf/masktools ).
-#                : ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
-#                : RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
-#                : RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
-
-# Extract/SubsMask2Img() requirements:
-#                : RT_Stats ( http://avisynth.nl/index.php/RT_Stats ).
-#                : GScript  ( http://avisynth.nl/index.php/GScript ).
-#                : GRunT    ( http://avisynth.nl/index.php/GRunT ).
-#                : MaskTools2
-#                : ClipBlend
+# Other requirements:
+#  MaskTools2    ( https://github.com/pinterf/masktools ).
+#  RgTools       ( https://github.com/pinterf/RgTools ).
+#  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
+#  ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
+#  RequestLinear ( http://avisynth.nl/index.php/TIVTC ).
+#  RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
+#  GScript       ( http://avisynth.nl/index.php/GScript ).
+#  GRunT         ( http://avisynth.nl/index.php/GRunT ).
 
 
 ##================================================================================================##
@@ -150,6 +148,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     Spaces are not allowed in "Loc" parameter.
 #                     Use even(mod2) numbers.
 #                     Include 10(no less) - ~16 pixel borders around logo!
+#                     Black borders shouldn't be present in the "Loc" area.
 
 
 # val "mask"        : File based mask:
@@ -222,8 +221,8 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                         These two frames must be set with "FrB" & "FrW" parameters and optional "FrS".
 #
 #                     4 -   Manual analysis. Good (in most cases) for the basemask generation with "Automask".
-#                          For delogo not good, use only on white logos and if there is no white/bright frame in video and method "1" is worse.
-#                          Will not deblend colored parts of the logo.
+#                          For delogo it's not good, use only if there is no white/bright frame in video and method "1" is worse.
+#                          Use only on white logos, will not deblend colored parts of the logo.
 #                          Setup is similar as method "3", just without "FrW" (it will be ignored).
 
 
@@ -1876,7 +1875,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
                   mask6     = (mode == "both" && DynMask == 0) ? OpaqueMask                            .Subtitle("otune mask"  ) :
                   \           (mode == "both" && DynMask != 0) ? DynamicMask.ConvertToY8.ConvertToRGB32.Subtitle("dynamic mask") :
-                  \           (mode == "deblend"             ) ? edgemask                              .Subtitle("edge pp"     ) :
+                  \           (EdgePP != 0                   ) ? edgemask                              .Subtitle("edge pp"     ) :
                   \                                              blankblk                              .Subtitle("disabled"    )
 
                   mask7     = blankblk.Subtitle("disabled")
@@ -2339,7 +2338,7 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     ImgSize     = Default(ImgSize     ,    1)
     ImgDir      = Default(ImgDir      ,   "")
 
-    Assert (!(CorrTh      <  0.50 || CorrTh      >  0.95), """"CorrTh" value must be between 0.65 and 0.95.""")
+    Assert (!(CorrTh      <   0.5 || CorrTh      >  0.95), """"CorrTh" value must be between 0.5 and 0.95.""")
     Assert (!(SubTune     <   100 || SubTune     >   254), """"SubTune" value must be between 200 and 254.""")
     Assert (!(SubMinDur   <     1 || SubMinDur   >    20), """"SubMinDur" value must be between 1 and 20.""")
     Assert (!(SubSuspect  <     0 || SubSuspect  >    40), """"SubSuspect" value must be between 0 and 40.""")
