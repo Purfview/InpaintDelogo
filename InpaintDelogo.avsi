@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.41                                                                                #
+#   Version: 1.42                                                                                #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.42 : 2021/11/03.  Fixed: A/C masks file name if coord is "-0".
 # Version 1.41 : 2021/11/03.  Fixed: "Show=1" was broken with "Deblend" since v1.18.
 # Version 1.40 : 2021/10/28.  Some speed optimizations. AvsInpaint v1.3 is required.
 # Version 1.39 : 2021/10/23.  Various improvements.
@@ -1294,16 +1295,16 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     IDXadapt    = string(int(deep+1))
 
-    DeepID1     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep1" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep1"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepID2     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep2" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep2"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepID3     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep3" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep3"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepID4     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep4" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep4"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepIDX     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep"+string(IDXadapt) :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+ string(a)+"-"+string(b)+string(c)+string(d)+"_A"+string(analyze)+"_Deep"+string(IDXadapt)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    DeepID1     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1" :
+    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    DeepID2     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep2" :
+    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep2"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    DeepID3     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep3" :
+    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep3"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    DeepID4     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep4" :
+    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep4"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    DeepIDX     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(IDXadapt) :
+    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(IDXadapt)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
 
 
     inDeep1     = (deep >= 1 && reanalyze == 1) ? eval("""
@@ -1529,8 +1530,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     #=================================================#
 
 
-    ID          = (analyze <= 2) ? MskName + "_InpaintDelogo_"+string(a)+"-"+string(b)+string(c)+string(d)+"_A"+ string(analyze) :
-    \             (analyze >= 3) ? MskName + "_InpaintDelogo_"+string(a)+"-"+string(b)+string(c)+string(d)+"_A"+ string(analyze)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    ID          = (analyze <= 2) ? MskName + "_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+ string(analyze) :
+    \             (analyze >= 3) ? MskName + "_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+ string(analyze)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
 
     inDeepX     = (deep == 1) ? inDeep1 : (deep == 2) ? inDeep2 : (deep == 3) ? inDeep3 : (deep == 4) ? inDeep4 : nop
 
