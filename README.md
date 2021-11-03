@@ -19,23 +19,19 @@
  </code></pre>
  
 <pre><code> 
-Requirements:
-Avisynth+ ( https://github.com/AviSynth/AviSynthPlus ) or Avisynth v2.6.
-AvsInpaint ( https://github.com/pinterf/AvsInpaint ).
+Core requirements:
+AviSynth+ v3.6.2 or later ( https://github.com/AviSynth/AviSynthPlus ).
+AvsInpaint v1.3 or later  ( https://github.com/pinterf/AvsInpaint ).
 
-Optional requirements:
-GrainFactory3 (for "GrainPP", http://avisynth.nl/index.php/GrainFactory3 ).
-MaskTools2    (for "DynMask>0", https://github.com/pinterf/masktools ).
-ClipBlend     (for "DynMask=3", http://avisynth.nl/index.php/ClipBlend ).
-RequestLinear (for "DynMask=3", http://avisynth.nl/index.php/TIVTC ).
-RgTools       (for "KillNoise", https://github.com/pinterf/RgTools ).
-
-Extract/SubsMask2Img() requirements:
-RT_Stats ( http://avisynth.nl/index.php/RT_Stats ).
-GScript  ( http://avisynth.nl/index.php/GScript ).
-GRunT    ( http://avisynth.nl/index.php/GRunT ).
-MaskTools2
-ClipBlend
+Other requirements:
+MaskTools2    ( https://github.com/pinterf/masktools ).
+RgTools       ( https://github.com/pinterf/RgTools ).
+GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
+ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
+RequestLinear ( http://avisynth.nl/index.php/TIVTC ).
+RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
+GScript       ( http://avisynth.nl/index.php/GScript ).
+GRunT         ( http://avisynth.nl/index.php/GRunT ).
  </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
