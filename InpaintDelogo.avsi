@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.42                                                                                #
+#   Version: 1.43                                                                                #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.43 : 2021/11/03.  Fixed: One pass Deblend didn't see A/C masks from multi pass. Changed: "Deep".
 # Version 1.42 : 2021/11/03.  Fixed: A/C masks file name if coord is "-0".
 # Version 1.41 : 2021/11/03.  Fixed: "Show=1" was broken with "Deblend" since v1.18.
 # Version 1.40 : 2021/10/28.  Some speed optimizations. AvsInpaint v1.3 is required.
@@ -237,11 +238,11 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     Reduce discoloration artifacts, less logo remnants.
 #                     Less transparent logo - bigger effect, sometimes no effect at all.
 #
-#                     0 - Disabled.
-#                     1 - 2-pass.
-#                     2 - 3-pass (default).
-#                     3 - 4-pass.
-#                     4 - 5-pass.
+#                     1 - Disabled (1-pass).
+#                     2 - 2-pass.
+#                     3 - 3-pass (default).
+#                     4 - 4-pass.
+#                     5 - 5-pass.
 
 
 # Int "FrB"        : Frame number of the black/dark frame for manual "Analyze" (default: 0).
@@ -816,7 +817,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Automask=0, aMix=0, Loc="100,100,-100,-100",
 \ Mode="Inpaint", Analyze=1, FrB=0, FrW=0, FrS=0,
-\ Inflate=1, Deep=2, ReAnalyze=0,
+\ Inflate=1, Deep=3, ReAnalyze=0,
 \ Interp=2, IntSpd=1, InterpM=0, iTune=0, iTinflate=0,
 \ dPP=3, dPPm=3,
 \ oPP=5, oPPm=3,
@@ -885,7 +886,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     loc         = default (loc       , ""  )
     mode        = default (mode , "inpaint")
     analyze     = default (analyze     , 1 )
-    deep        = default (deep        , 2 )
+    deep        = default (deep        , 3 )
     FrB         = default (FrB         , 0 )
     FrW         = default (FrW         , 0 )
     frs         = default (frs         , 0 )
@@ -962,7 +963,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugloc2     = (loc          == "100,100,-100,-100"  ) ? true : false
     buganalyze  = (analyze      < 1 || analyze      >  4) ? true : false
     bugreanalyze= (reanalyze    < 0 || reanalyze    >  1) ? true : false
-    bugdeep     = (deep         < 0 || deep         >  4) ? true : false
+    bugdeep     = (deep         < 1 || deep         >  5) ? true : false
     bugfrs      = (frs          < 0 || frs          >  3) ? true : false
     buginterp   = (interp       < 0 || interp       >  4) ? true : false
     buginterpm  = (interpm     < -1 || interpm      >  2) ? true : false
@@ -1042,7 +1043,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugcombo11        == false   , """Subtitles extraction works only with "Show=4" parameter.""")
     assert        ( buganalyze        == false  , """"Analyze" value must be between 1 and 4.""")
     assert        ( bugreanalyze      == false  , """"ReAnalyze" value must be between 0 and 1.""")
-    assert        ( bugdeep           == false  , """"Deep" value must be between 0 and 4.""")
+    assert        ( bugdeep           == false  , """"Deep" value must be between 1 and 5.""")
     assert        ( bugfrs            == false  , """"FrS" value must be between 0 and 3.""")
     assert        ( buginterp         == false  , """"Interp" value must be between 0 and 4.""")
     assert        ( buginterpm        == false  , """"InterpM" value must be between -1 and 2.""")
@@ -1116,7 +1117,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     # Hard overrides:
     reanalyze   = (Automask == 1                      ) ? 1 : reanalyze
     reanalyze   = (mode  == "inpaint" && dynmask  != 0) ? 1 : reanalyze
-    deep        = (mode  == "inpaint" || automask == 1) ? 0 : deep
+    deep        = (mode  == "inpaint" || automask == 1) ? 1 : deep
     dynmask     = (mode  == "deblend"                 ) ? 0 : dynmask
     analyze     = (mode  == "inpaint" && automask != 1) ? 0 : analyze
     interp      = (mode  == "inpaint"                 ) ? 0 : interp
@@ -1293,8 +1294,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     MskName     = (IsString(mask)) ? mask : "Clip"
     MskName     = (mode == "inpaint") ? "Dummy" : MskName
 
-    IDXadapt    = string(int(deep+1))
-
     DeepID1     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1" :
     \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
     DeepID2     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep2" :
@@ -1303,11 +1302,11 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep3"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
     DeepID4     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep4" :
     \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep4"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepIDX     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(IDXadapt) :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(IDXadapt)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    DeepIDX     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(deep) :
+    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(deep)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
 
 
-    inDeep1     = (deep >= 1 && reanalyze == 1) ? eval("""
+    inDeep1     = (deep >= 2 && reanalyze == 1) ? eval("""
 
                   # Pass 1 #
                   #========#
@@ -1322,7 +1321,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inRGB24.DeblendLogo(LogoColor1, LogoAlpha1)
 
 
-                  """) : (deep >= 1 && reanalyze == 0) ? eval("""
+                  """) : (deep >= 2 && reanalyze == 0) ? eval("""
 
                   try
                   {ImageSource(DeepID1 + "%.0d.ebmp",0,0)
@@ -1343,7 +1342,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inRGB24.DeblendLogo(LogoColor1, LogoAlpha1)}""") : nop
 
 
-    inDeep2     = (deep >= 2 && reanalyze == 1) ? eval("""
+    inDeep2     = (deep >= 3 && reanalyze == 1) ? eval("""
 
                   # Pass 2 #
                   #========#
@@ -1366,7 +1365,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inDeep1.DeblendLogo(LogoColor2, LogoAlpha2)
 
 
-                  """) : (deep >= 2 && reanalyze == 0) ? eval("""
+                  """) : (deep >= 3 && reanalyze == 0) ? eval("""
 
                   try
                   {TrimFix1   = (analyze == 3 ) ? inDeep1.Trim(FrB,frx)+inDeep1.Trim(FrW,frx) :
@@ -1404,7 +1403,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inDeep1.DeblendLogo(LogoColor2, LogoAlpha2)} """) : nop
 
 
-    inDeep3     = (deep >= 3 && reanalyze == 1) ? eval("""
+    inDeep3     = (deep >= 4 && reanalyze == 1) ? eval("""
 
                   # Pass 3 #
                   #========#
@@ -1427,7 +1426,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inDeep2.DeblendLogo(LogoColor3, LogoAlpha3)
 
 
-                  """) : (deep >= 3 && reanalyze == 0) ? eval("""
+                  """) : (deep >= 4 && reanalyze == 0) ? eval("""
 
                   try
                   {TrimFix2   = (analyze == 3 ) ? inDeep2.Trim(FrB,frx)+inDeep2.Trim(FrW,frx) :
@@ -1465,7 +1464,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inDeep2.DeblendLogo(LogoColor3, LogoAlpha3)}""") : nop
 
 
-    inDeep4     = (deep >= 4 && reanalyze == 1) ? eval("""
+    inDeep4     = (deep >= 5 && reanalyze == 1) ? eval("""
 
                   # Pass 4 #
                   #========#
@@ -1488,7 +1487,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   inDeep3.DeblendLogo(LogoColor4, LogoAlpha4)
 
 
-                  """) : (deep >= 4 && reanalyze == 0) ? eval("""
+                  """) : (deep >= 5 && reanalyze == 0) ? eval("""
 
                   try
                   {TrimFix3   = (analyze == 3 ) ? inDeep3.Trim(FrB,frx)+inDeep3.Trim(FrW,frx) :
@@ -1530,12 +1529,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     #=================================================#
 
 
-    ID          = (analyze <= 2) ? MskName + "_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+ string(analyze) :
-    \             (analyze >= 3) ? MskName + "_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+ string(analyze)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    inDeepX     = (deep == 2) ? inDeep1 : (deep == 3) ? inDeep2 : (deep == 4) ? inDeep3 : (deep == 5) ? inDeep4 : nop
 
-    inDeepX     = (deep == 1) ? inDeep1 : (deep == 2) ? inDeep2 : (deep == 3) ? inDeep3 : (deep == 4) ? inDeep4 : nop
-
-    Logo        = (deep != 0 && reanalyze == 1) ? eval("""
+    Logo        = (deep != 1 && reanalyze == 1) ? eval("""
 
                   # Pass X #
                   #========#
@@ -1552,7 +1548,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   ImageWriter(DeepIDX + "%.0d.ebmp",0,-1,"ebmp")
 
 
-                  """) : (deep != 0 && reanalyze == 0) ? eval("""
+                  """) : (deep != 1 && reanalyze == 0) ? eval("""
 
                   try
                   {ImageSource(DeepIDX + "%.0d.ebmp",0,0)}
@@ -1570,23 +1566,23 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   ImageWriter(DeepIDX + "%.0d.ebmp",0,-1,"ebmp")}
 
 
-                  # Analyze (Deep=0) #
+                  # Analyze (Deep=1) #
                   #==================#
 
-                  """) : (deep == 0 && reanalyze == 1) ? eval("""
+                  """) : (deep == 1 && reanalyze == 1) ? eval("""
 
                   Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(ID +"%.0d.ebmp",0,-1,"ebmp")
+                  ImageWriter(DeepID1 +"%.0d.ebmp",0,-1,"ebmp")
 
 
-                  """) : (deep == 0 && reanalyze == 0) ? eval("""
+                  """) : (deep == 1 && reanalyze == 0) ? eval("""
 
                   try
-                  {ImageSource(ID + "%.0d.ebmp",0,0)}
+                  {ImageSource(DeepID1 + "%.0d.ebmp",0,0)}
                   catch(dummy)
 
                   {Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(ID + "%.0d.ebmp",0,-1,"ebmp")}""") : nop
+                  ImageWriter(DeepID1 + "%.0d.ebmp",0,-1,"ebmp")}""") : nop
 
 
     # Have you weared your mask today? #
@@ -1595,20 +1591,20 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     InterpMask  = Basemask.balloonPX(interpmInfl)
 
-    Phase1Logo  = (deep != 0) ? eval("""ImageSource(DeepID1 + "%.0d.ebmp",0,0)""") : nop
-    Phase1Color = (deep != 0) ? Phase1Logo.Crop(0,0,0,Phase1Logo.Height/2).ConvertToRGB24 : nop
-    Phase1Alpha = (deep != 0) ? Phase1Logo.Crop(0,Phase1Logo.Height/2,0,0) : nop
-    Phase1Alpha = (deep != 0) ? Phase1Alpha.Mask(Phase1Alpha) : nop
+    Phase1Logo  = (deep != 1) ? eval("""ImageSource(DeepID1 + "%.0d.ebmp",0,0)""") : nop
+    Phase1Color = (deep != 1) ? Phase1Logo.Crop(0,0,0,Phase1Logo.Height/2).ConvertToRGB24 : nop
+    Phase1Alpha = (deep != 1) ? Phase1Logo.Crop(0,Phase1Logo.Height/2,0,0) : nop
+    Phase1Alpha = (deep != 1) ? Phase1Alpha.Mask(Phase1Alpha) : nop
 
     LogoColor   = Logo.Crop(0,0,0,Logo.Height/2).ConvertToRGB24
     LogoAlpha   = Logo.Crop(0,Logo.Height/2,0,0)
     LogoAlpha   = LogoAlpha.Mask(LogoAlpha)
 
-    OpaqueTune  = (deep != 0) ? Phase1Alpha.Levels(tunelow,1,tunehigh,0,255) :
+    OpaqueTune  = (deep != 1) ? Phase1Alpha.Levels(tunelow,1,tunehigh,0,255) :
     \                           LogoAlpha.  Levels(tunelow,1,tunehigh,0,255)
     OpaqueTune  = OpaqueTune.balloonPX(oTinflate)
 
-    InterpTuneP = (deep != 0) ? Phase1Alpha.Levels(itunelow,1,itunehigh,0,255) :
+    InterpTuneP = (deep != 1) ? Phase1Alpha.Levels(itunelow,1,itunehigh,0,255) :
     \                           LogoAlpha.  Levels(itunelow,1,itunehigh,0,255)
     InterpTune  = InterpTuneP.balloonPX(iTinflate)
 
@@ -1644,7 +1640,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     LogoDeblend = (automask == 0 && mode != "inpaint" && Show < 3) ? eval("""
 
-                  LogoDeblPre = (deep != 0   ) ? inDeepX.DeblendLogo(Logocolor,LogoAlpha).ConvertToYV12(matrix=matrixID) :
+                  LogoDeblPre = (deep != 1   ) ? inDeepX.DeblendLogo(Logocolor,LogoAlpha).ConvertToYV12(matrix=matrixID) :
                   \                              inRGB24.DeblendLogo(Logocolor,LogoAlpha).ConvertToYV12(matrix=matrixID)
 
                   LogoInpaPre = (interpm == -1 && intspd == 1) ? LogoDeblPre.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius=2) :
@@ -1853,8 +1849,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   Delogo    = delogo.ConvertToRGB32   .Subtitle("delogo"   )
                   Delogopp  = delogopp9.ConvertToRGB32.Subtitle("delogo pp")
 
-                  Logoalpha = (deep == 0) ? Logoalpha : Phase1Alpha
-                  Logocolor = (deep == 0) ? Logocolor : Phase1color
+                  Logoalpha = (deep == 1) ? Logoalpha : Phase1Alpha
+                  Logocolor = (deep == 1) ? Logocolor : Phase1color
 
                   mask1     = (mode == "inpaint") ? Imgmask   .Subtitle("base mask" ) :
                   \                                 Logoalpha .Subtitle("logo alpha")
