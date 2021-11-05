@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.43                                                                                #
+#   Version: 1.44                                                                                #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.44 : 2021/11/05.  Refactored multipass deblending code.
 # Version 1.43 : 2021/11/03.  Fixed: One pass Deblend didn't see A/C masks from multi pass. Changed: "Deep".
 # Version 1.42 : 2021/11/03.  Fixed: A/C masks file name if coord is "-0".
 # Version 1.41 : 2021/11/03.  Fixed: "Show=1" was broken with "Deblend" since v1.18.
@@ -1294,295 +1295,27 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     MskName     = (IsString(mask)) ? mask : "Clip"
     MskName     = (mode == "inpaint") ? "Dummy" : MskName
 
-    DeepID1     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1" :
+    DeepID      = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1" :
     \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep1"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepID2     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep2" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep2"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepID3     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep3" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep3"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepID4     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep4" :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep4"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-    DeepIDX     = (analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(deep) :
-    \             (analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(analyze)+"_Deep"+string(deep)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
-
-
-    inDeep1     = (deep >= 2 && reanalyze == 1) ? eval("""
-
-                  # Pass 1 #
-                  #========#
-
-                  Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID1 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor1 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha1 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha1 = LogoAlpha1.Mask(LogoAlpha1)
-
-                  inRGB24.DeblendLogo(LogoColor1, LogoAlpha1)
-
-
-                  """) : (deep >= 2 && reanalyze == 0) ? eval("""
-
-                  try
-                  {ImageSource(DeepID1 + "%.0d.ebmp",0,0)
-
-                  LogoColor1 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha1 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha1 = LogoAlpha1.Mask(LogoAlpha1)
-
-                  inRGB24.DeblendLogo(LogoColor1, LogoAlpha1)}
-                  catch(dummy)
-
-                  {Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID1 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor1 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha1 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha1 = LogoAlpha1.Mask(LogoAlpha1)
-                  inRGB24.DeblendLogo(LogoColor1, LogoAlpha1)}""") : nop
-
-
-    inDeep2     = (deep >= 3 && reanalyze == 1) ? eval("""
-
-                  # Pass 2 #
-                  #========#
-
-                  TrimFix1   = (analyze == 3 ) ? inDeep1.Trim(FrB,frx)+inDeep1.Trim(FrW,frx) :
-                  \                              inDeep1.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix1       = (FrS == 0) ? TrimFix1.Loop(200) : (FrS == 1) ? TrimFix1.Loop(150) : (FrS == 2) ? TrimFix1.Loop(80) : TrimFix1.Loop(40)
-
-                  Method1    = (analyze == 1 ) ? inDeep1.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep1                                      : Fix1
-
-                  Method1.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID2 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor2 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha2 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha2 = LogoAlpha2.Mask(LogoAlpha2)
-
-                  inDeep1.DeblendLogo(LogoColor2, LogoAlpha2)
-
-
-                  """) : (deep >= 3 && reanalyze == 0) ? eval("""
-
-                  try
-                  {TrimFix1   = (analyze == 3 ) ? inDeep1.Trim(FrB,frx)+inDeep1.Trim(FrW,frx) :
-                  \                               inDeep1.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix1       = (FrS == 0) ? TrimFix1.Loop(200) : (FrS == 1) ? TrimFix1.Loop(150) : (FrS == 2) ? TrimFix1.Loop(80) : TrimFix1.Loop(40)
-
-                  Method1    = (analyze == 1 ) ? inDeep1.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep1                                      : Fix1
-
-                  ImageSource(DeepID2 + "%.0d.ebmp",0,0)
-
-                  LogoColor2 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha2 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha2 = LogoAlpha2.Mask(LogoAlpha2)
-
-                  inDeep1.DeblendLogo(LogoColor2, LogoAlpha2)}
-                  catch(dummy)
-
-                  {TrimFix1   = (analyze == 3 ) ? inDeep1.Trim(FrB,frx)+inDeep1.Trim(FrW,frx) :
-                  \                               inDeep1.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix1       = (FrS == 0) ? TrimFix1.Loop(200) : (FrS == 1) ? TrimFix1.Loop(150) : (FrS == 2) ? TrimFix1.Loop(80) : TrimFix1.Loop(40)
-
-                  Method1    = (analyze == 1 ) ? inDeep1.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep1                                      : Fix1
-
-                  Method1.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID2 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor2 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha2 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha2 = LogoAlpha2.Mask(LogoAlpha2)
-
-                  inDeep1.DeblendLogo(LogoColor2, LogoAlpha2)} """) : nop
-
-
-    inDeep3     = (deep >= 4 && reanalyze == 1) ? eval("""
-
-                  # Pass 3 #
-                  #========#
-
-                  TrimFix2   = (analyze == 3 ) ? inDeep2.Trim(FrB,frx)+inDeep2.Trim(FrW,frx) :
-                  \                              inDeep2.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix2       = (FrS == 0) ? TrimFix2.Loop(200) : (FrS == 1) ? TrimFix2.Loop(150) : (FrS == 2) ? TrimFix2.Loop(80) : TrimFix2.Loop(40)
-
-                  Method2    = (analyze == 1 ) ? inDeep2.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep2                                      : Fix2
-
-                  Method2.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID3 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor3 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha3 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha3 = LogoAlpha3.Mask(LogoAlpha3)
-
-                  inDeep2.DeblendLogo(LogoColor3, LogoAlpha3)
-
-
-                  """) : (deep >= 4 && reanalyze == 0) ? eval("""
-
-                  try
-                  {TrimFix2   = (analyze == 3 ) ? inDeep2.Trim(FrB,frx)+inDeep2.Trim(FrW,frx) :
-                  \                               inDeep2.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix2       = (FrS == 0) ? TrimFix2.Loop(200) : (FrS == 1) ? TrimFix2.Loop(150) : (FrS == 2) ? TrimFix2.Loop(80) : TrimFix2.Loop(40)
-
-                  Method2    = (analyze == 1 ) ? inDeep2.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep2                                      : Fix2
-
-                  ImageSource(DeepID3 + "%.0d.ebmp",0,0)
-
-                  LogoColor3 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha3 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha3 = LogoAlpha3.Mask(LogoAlpha3)
-
-                  inDeep2.DeblendLogo(LogoColor3, LogoAlpha3)}
-                  catch(dummy)
-
-                  {TrimFix2   = (analyze == 3 ) ? inDeep2.Trim(FrB,frx)+inDeep2.Trim(FrW,frx) :
-                  \                               inDeep2.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix2       = (FrS == 0) ? TrimFix2.Loop(200) : (FrS == 1) ? TrimFix2.Loop(150) : (FrS == 2) ? TrimFix2.Loop(80) : TrimFix2.Loop(40)
-
-                  Method2    = (analyze == 1 ) ? inDeep2.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep2                                      : Fix2
-
-                  Method2.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID3 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor3 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha3 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha3 = LogoAlpha3.Mask(LogoAlpha3)
-
-                  inDeep2.DeblendLogo(LogoColor3, LogoAlpha3)}""") : nop
-
-
-    inDeep4     = (deep >= 5 && reanalyze == 1) ? eval("""
-
-                  # Pass 4 #
-                  #========#
-
-                  TrimFix3   = (analyze == 3 ) ? inDeep3.Trim(FrB,frx)+inDeep3.Trim(FrW,frx) :
-                  \                              inDeep3.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix3       = (FrS == 0) ? TrimFix3.Loop(200) : (FrS == 1) ? TrimFix3.Loop(150) : (FrS == 2) ? TrimFix3.Loop(80) : TrimFix3.Loop(40)
-
-                  Method3    = (analyze == 1 ) ? inDeep3.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep3                                      : Fix3
-
-                  Method3.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID4 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor4 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha4 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha4 = LogoAlpha4.Mask(LogoAlpha4)
-
-                  inDeep3.DeblendLogo(LogoColor4, LogoAlpha4)
-
-
-                  """) : (deep >= 5 && reanalyze == 0) ? eval("""
-
-                  try
-                  {TrimFix3   = (analyze == 3 ) ? inDeep3.Trim(FrB,frx)+inDeep3.Trim(FrW,frx) :
-                  \                               inDeep3.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix3       = (FrS == 0) ? TrimFix3.Loop(200) : (FrS == 1) ? TrimFix3.Loop(150) : (FrS == 2) ? TrimFix3.Loop(80) : TrimFix3.Loop(40)
-
-                  Method3    = (analyze == 1 ) ? inDeep3.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep3                                      : Fix3
-
-                  ImageSource(DeepID4 + "%.0d.ebmp",0,0)
-
-                  LogoColor4 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha4 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha4 = LogoAlpha4.Mask(LogoAlpha4)
-
-                  inDeep3.DeblendLogo(LogoColor4, LogoAlpha4)}
-                  catch(dummy)
-
-                  {TrimFix3   = (analyze == 3 ) ? inDeep3.Trim(FrB,frx)+inDeep3.Trim(FrW,frx) :
-                  \                              inDeep3.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix3       = (FrS == 0) ? TrimFix3.Loop(200) : (FrS == 1) ? TrimFix3.Loop(150) : (FrS == 2) ? TrimFix3.Loop(80) : TrimFix3.Loop(40)
-
-                  Method3    = (analyze == 1 ) ? inDeep3.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeep3                                      : Fix3
-
-                  Method3.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID4 + "%.0d.ebmp",0,-1,"ebmp")
-
-                  LogoColor4 = Crop(0,0,0,last.Height/2).ConvertToRGB24
-                  LogoAlpha4 = Crop(0,last.Height/2,0,0)
-                  LogoAlpha4 = LogoAlpha4.Mask(LogoAlpha4)
-
-                  inDeep3.DeblendLogo(LogoColor4, LogoAlpha4)}""") : nop
 
 
     # Analyze process (Color & Alpha masks creation). #
     #=================================================#
 
 
-    inDeepX     = (deep == 2) ? inDeep1 : (deep == 3) ? inDeep2 : (deep == 4) ? inDeep3 : (deep == 5) ? inDeep4 : nop
-
-    Logo        = (deep != 1 && reanalyze == 1) ? eval("""
-
-                  # Pass X #
-                  #========#
-
-                  TrimFix5   = (analyze == 3 ) ? inDeepX.Trim(FrB,frx)+inDeepX.Trim(FrW,frx) :
-                  \                              inDeepX.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix5       = (FrS == 0) ? TrimFix5.Loop(200) : (FrS == 1) ? TrimFix5.Loop(150) : (FrS == 2) ? TrimFix5.Loop(80) : TrimFix5.Loop(40)
-
-                  Method5    = (analyze == 1 ) ? inDeepX.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeepX                                      : Fix5
-
-                  Method5.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepIDX + "%.0d.ebmp",0,-1,"ebmp")
-
-
-                  """) : (deep != 1 && reanalyze == 0) ? eval("""
-
-                  try
-                  {ImageSource(DeepIDX + "%.0d.ebmp",0,0)}
-                  catch(dummy)
-
-                  {TrimFix5   = (analyze == 3 ) ? inDeepX.Trim(FrB,frx)+inDeepX.Trim(FrW,frx) :
-                  \                               inDeepX.Trim(FrB,frx)+blankwht.Trim(0,frx)
-
-                  Fix5       = (FrS == 0) ? TrimFix5.Loop(200) : (FrS == 1) ? TrimFix5.Loop(150) : (FrS == 2) ? TrimFix5.Loop(80) : TrimFix5.Loop(40)
-
-                  Method5    = (analyze == 1 ) ? inDeepX.SelectRangeEvery(every=33, length=1) :
-                  \            (analyze == 2 ) ? inDeepX                                      : Fix5
-
-                  Method5.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepIDX + "%.0d.ebmp",0,-1,"ebmp")}
-
-
-                  # Analyze (Deep=1) #
-                  #==================#
-
-                  """) : (deep == 1 && reanalyze == 1) ? eval("""
+    Logo        = (reanalyze == 1) ? eval("""
 
                   Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID1 +"%.0d.ebmp",0,-1,"ebmp")
+                  ImageWriter(DeepID +"%.0d.ebmp",0,-1,"ebmp")
 
-
-                  """) : (deep == 1 && reanalyze == 0) ? eval("""
+                  """) : (reanalyze == 0) ? eval("""
 
                   try
-                  {ImageSource(DeepID1 + "%.0d.ebmp",0,0)}
-                  catch(dummy)
+                  {ImageSource(DeepID + "%.0d.ebmp",0,0)}
 
+                  catch(dummy)
                   {Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-                  ImageWriter(DeepID1 + "%.0d.ebmp",0,-1,"ebmp")}""") : nop
+                  ImageWriter(DeepID + "%.0d.ebmp",0,-1,"ebmp")}""") : nop
 
 
     # Have you weared your mask today? #
@@ -1591,21 +1324,14 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     InterpMask  = Basemask.balloonPX(interpmInfl)
 
-    Phase1Logo  = (deep != 1) ? eval("""ImageSource(DeepID1 + "%.0d.ebmp",0,0)""") : nop
-    Phase1Color = (deep != 1) ? Phase1Logo.Crop(0,0,0,Phase1Logo.Height/2).ConvertToRGB24 : nop
-    Phase1Alpha = (deep != 1) ? Phase1Logo.Crop(0,Phase1Logo.Height/2,0,0) : nop
-    Phase1Alpha = (deep != 1) ? Phase1Alpha.Mask(Phase1Alpha) : nop
-
     LogoColor   = Logo.Crop(0,0,0,Logo.Height/2).ConvertToRGB24
     LogoAlpha   = Logo.Crop(0,Logo.Height/2,0,0)
     LogoAlpha   = LogoAlpha.Mask(LogoAlpha)
 
-    OpaqueTune  = (deep != 1) ? Phase1Alpha.Levels(tunelow,1,tunehigh,0,255) :
-    \                           LogoAlpha.  Levels(tunelow,1,tunehigh,0,255)
+    OpaqueTune  = LogoAlpha.Levels(tunelow,1,tunehigh,0,255)
     OpaqueTune  = OpaqueTune.balloonPX(oTinflate)
 
-    InterpTuneP = (deep != 1) ? Phase1Alpha.Levels(itunelow,1,itunehigh,0,255) :
-    \                           LogoAlpha.  Levels(itunelow,1,itunehigh,0,255)
+    InterpTuneP = LogoAlpha.Levels(itunelow,1,itunehigh,0,255)
     InterpTune  = InterpTuneP.balloonPX(iTinflate)
 
     InterpMask  = (interpm == -1) ? InterpTune :
@@ -1640,7 +1366,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     LogoDeblend = (automask == 0 && mode != "inpaint" && Show < 3) ? eval("""
 
-                  LogoDeblPre = (deep != 1   ) ? inDeepX.DeblendLogo(Logocolor,LogoAlpha).ConvertToYV12(matrix=matrixID) :
+                  LogoDeblPre = (deep != 1   ) ? MultiPassDeblendFX(inRGB24,Basemask,blankwht,a,b,c,d,MskName,Deep,FrB,FrW,frs,frx,Analyze,Reanalyze,0).ConvertToYV12(matrix=matrixID) :
                   \                              inRGB24.DeblendLogo(Logocolor,LogoAlpha).ConvertToYV12(matrix=matrixID)
 
                   LogoInpaPre = (interpm == -1 && intspd == 1) ? LogoDeblPre.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius=2) :
@@ -1849,9 +1575,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   Delogo    = delogo.ConvertToRGB32   .Subtitle("delogo"   )
                   Delogopp  = delogopp9.ConvertToRGB32.Subtitle("delogo pp")
 
-                  Logoalpha = (deep == 1) ? Logoalpha : Phase1Alpha
-                  Logocolor = (deep == 1) ? Logocolor : Phase1color
-
                   mask1     = (mode == "inpaint") ? Imgmask   .Subtitle("base mask" ) :
                   \                                 Logoalpha .Subtitle("logo alpha")
 
@@ -1955,6 +1678,54 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
                   finalout = (Loc == "-0,-0,-0,-0" || Loc == "0,0,-0,-0") ? helper : clp.Overlay(helper,x=a,y=b)
                   return finalout """)
+}
+
+
+##================================================================================================##
+#   MultiPassDeblendFX:                                                                            #
+##================================================================================================##
+
+
+function MultiPassDeblendFX(clip inRGB24, clip Basemask, clip blankwht, int a, int b, int c, int d, string MskName, int Deep, int FrB, int FrW, int frs, int frx, int Analyze, int Reanalyze, int Pass) {
+    Pass = Pass +1
+
+    TrimFix = (analyze == 3 ) ? inRGB24.Trim(FrB,frx)+inRGB24.Trim(FrW,frx) :
+    \                           inRGB24.Trim(FrB,frx)+blankwht.Trim(0,frx)
+
+    Fix = (FrS == 0) ? TrimFix.Loop(200) : (FrS == 1) ? TrimFix.Loop(150) : (FrS == 2) ? TrimFix.Loop(80) : TrimFix.Loop(40)
+
+    Method = (analyze == 1 ) ? inRGB24.SelectRangeEvery(every=33, length=1) :
+    \        (analyze == 2 ) ? inRGB24                                      : Fix
+
+    DeepID = (Analyze <= 2) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(Analyze)+"_Deep"+string(Pass) :
+    \        (Analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(Analyze)+"_Deep"+string(Pass)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
+    ACmaskfile = DeepID + ".ebmp"
+
+    if(Reanalyze == 1) {
+        Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
+        ImageWriter(DeepID + "%.0d.ebmp",0,-1,"ebmp")
+        LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
+        LogoAlpha = Crop(0,last.Height/2,0,0)
+        LogoAlpha = LogoAlpha.Mask(LogoAlpha)
+        inRGB24.DeblendLogo(LogoColor, LogoAlpha)
+    } else {
+          if(Exist(ACmaskfile)) {
+              ImageSource(DeepID + "%.0d.ebmp",0,0)
+              LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
+              LogoAlpha = Crop(0,last.Height/2,0,0)
+              LogoAlpha = LogoAlpha.Mask(LogoAlpha)
+              inRGB24.DeblendLogo(LogoColor, LogoAlpha)
+          } else {
+              Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
+              ImageWriter(DeepID + "%.0d.ebmp",0,-1,"ebmp")
+              LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
+              LogoAlpha = Crop(0,last.Height/2,0,0)
+              LogoAlpha = LogoAlpha.Mask(LogoAlpha)
+              inRGB24.DeblendLogo(LogoColor, LogoAlpha)
+          }
+    }
+    out  = (Pass == Deep) ? Last : MultiPassDeblendFX(Last, Basemask, blankwht, a, b, c, d, MskName, Deep, FrB, FrW, frs, frx, Analyze, Reanalyze, Pass)
+    return out
 }
 
 
