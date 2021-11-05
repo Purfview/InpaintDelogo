@@ -1701,28 +1701,19 @@ function MultiPassDeblendFX(clip inRGB24, clip Basemask, clip blankwht, int a, i
     \        (Analyze >= 3) ? MskName+"_InpaintDelogo_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(Analyze)+"_Deep"+string(Pass)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs) : nop
     ACmaskfile = DeepID + ".ebmp"
 
-    if(Reanalyze == 1) {
+    if(Reanalyze == 0 && Exist(ACmaskfile)) {
+        ImageSource(DeepID + "%.0d.ebmp",0,0)
+        LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
+        LogoAlpha = Crop(0,last.Height/2,0,0)
+        LogoAlpha = LogoAlpha.Mask(LogoAlpha)
+        inRGB24.DeblendLogo(LogoColor, LogoAlpha)
+    } else {
         Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
         ImageWriter(DeepID + "%.0d.ebmp",0,-1,"ebmp")
         LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
         LogoAlpha = Crop(0,last.Height/2,0,0)
         LogoAlpha = LogoAlpha.Mask(LogoAlpha)
         inRGB24.DeblendLogo(LogoColor, LogoAlpha)
-    } else {
-          if(Exist(ACmaskfile)) {
-              ImageSource(DeepID + "%.0d.ebmp",0,0)
-              LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
-              LogoAlpha = Crop(0,last.Height/2,0,0)
-              LogoAlpha = LogoAlpha.Mask(LogoAlpha)
-              inRGB24.DeblendLogo(LogoColor, LogoAlpha)
-          } else {
-              Method.analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
-              ImageWriter(DeepID + "%.0d.ebmp",0,-1,"ebmp")
-              LogoColor = Crop(0,0,0,last.Height/2).ConvertToRGB24
-              LogoAlpha = Crop(0,last.Height/2,0,0)
-              LogoAlpha = LogoAlpha.Mask(LogoAlpha)
-              inRGB24.DeblendLogo(LogoColor, LogoAlpha)
-          }
     }
     out  = (Pass == Deep) ? Last : MultiPassDeblendFX(Last, Basemask, blankwht, a, b, c, d, MskName, Deep, FrB, FrW, frs, frx, Analyze, Reanalyze, Pass)
     return out
