@@ -27,10 +27,10 @@ Other requirements:
 MaskTools2    ( https://github.com/pinterf/masktools ).
 RgTools       ( https://github.com/pinterf/RgTools ).
 GRunT         ( https://github.com/pinterf/GRunT ).
-GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
+RequestLinear ( https://github.com/pinterf/TIVTC ).
 ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
-RequestLinear ( http://avisynth.nl/index.php/TIVTC ).
 RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
+GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 )
  </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
