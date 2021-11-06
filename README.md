@@ -26,12 +26,11 @@ AvsInpaint v1.3 or later  ( https://github.com/pinterf/AvsInpaint ).
 Other requirements:
 MaskTools2    ( https://github.com/pinterf/masktools ).
 RgTools       ( https://github.com/pinterf/RgTools ).
+GRunT         ( https://github.com/pinterf/GRunT ).
 GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
 ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
 RequestLinear ( http://avisynth.nl/index.php/TIVTC ).
 RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
-GScript       ( http://avisynth.nl/index.php/GScript ).
-GRunT         ( http://avisynth.nl/index.php/GRunT ).
  </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
