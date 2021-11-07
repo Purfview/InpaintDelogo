@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.44                                                                                #
+#   Version: 1.45                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.45 : 2021/11/07.  Fixed: Automask wasn't working if coords were "0,0,0,0".
 # Version 1.44 : 2021/11/05.  Refactored multipass deblending code.
 # Version 1.43 : 2021/11/03.  Fixed: One pass Deblend didn't see A/C masks from multi pass. Changed: "Deep".
 # Version 1.42 : 2021/11/03.  Fixed: A/C masks file name if coord is "-0".
@@ -1222,20 +1223,23 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
                   AutoID    = LeftStr(mask,int(StrLen(mask)-4))
 
-                  Blackclp  = BlankClip(clp,length=1).ConvertToRGB24
-                  Whitecrop = BlankClip(clp,color=$FFFFFF,length=1).ConvertToRGB24.Crop(a,b,c,d)
-                  Merge     = Blackclp.Overlay(Whitecrop,x=a,y=b).ConvertToRGB32
-                  Merge     = Merge.Mask(Merge)
-                  Merge     = Merge.balloonPX(-7).Crop(a,b,c,d)
+                  bAutoClp  = BlankClip(clp,length=1).ConvertToRGB24
+                  wAutoClp  = (Loc == "0,0,-0,-0" || Loc == "0,0,0,0") ? BlankClip(clp,color=$FFFFFF,length=1).ConvertToRGB24.Crop(1,1,-1,-1) :
+                  \                                                      BlankClip(clp,color=$FFFFFF,length=1).ConvertToRGB24.Crop(a,b,c,d)
+                  aMerge    = (Loc == "0,0,-0,-0" || Loc == "0,0,0,0") ? bAutoClp.Overlay(wAutoClp,x=a+1,y=b+1).ConvertToRGB32 :
+                  \                                                      bAutoClp.Overlay(wAutoClp,x=a,y=b).ConvertToRGB32
+                  aMerge    = (Loc == "0,0,-0,-0" || Loc == "0,0,0,0") ? aMerge.ConvertToY8(matrix="PC.709").MTballoon2PX(-6).ConvertToRGB32(matrix="PC.709") :
+                  \                                                      aMerge.ConvertToY8(matrix="PC.709").MTballoon2PX(-7).ConvertToRGB32(matrix="PC.709")
+                  aMerge    = aMerge.Mask(aMerge).Crop(a,b,c,d)
 
-                  Method.analyzelogo(Merge).Trim(0,-1).ConvertToRGB32
+                  Method.analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32
                   Crop(0,last.Height/2,0,0)
-                  ImageWriter(AutoID  + "_temp%.0d.bmp",0,-1,"bmp")
+                  ImageWriter(AutoID  + "_temp%.0d.bmp",0,-1,"bmp").RT_YankChain(n=0)
 
-                  Blackclp.Overlay(last,x=a,y=b).ConvertToRGB32
+                  bAutoClp.Overlay(last,x=a,y=b).ConvertToRGB32
 
                   Levels(amixlow,1,amixhigh,0,255, coring=false)
-                  ImageWriter(AutoID  + "%.0d.bmp",0,-1,"bmp")
+                  ImageWriter(AutoID  + "%.0d.bmp",0,-1,"bmp").RT_YankChain(n=0)
 
                   return Last """) : nop
 
@@ -1839,14 +1843,29 @@ function MTballoon2PX(clip clp, int "mode") {
     px6 = px5.mt_expand(mode="square", chroma="none")
     px7 = px6.mt_expand(mode="square", chroma="none")
 
-    balloon = (mode ==  0) ? clp :
-    \         (mode ==  1) ? px1 :
-    \         (mode ==  2) ? px2 :
-    \         (mode ==  3) ? px3 :
-    \         (mode ==  4) ? px4 :
-    \         (mode ==  5) ? px5 :
-    \         (mode ==  6) ? px6 :
-    \         (mode ==  7) ? px7 : nop
+    px1m =  clp.mt_inpand(mode="square", chroma="none")
+    px2m = px1m.mt_inpand(mode="square", chroma="none")
+    px3m = px2m.mt_inpand(mode="square", chroma="none")
+    px4m = px3m.mt_inpand(mode="square", chroma="none")
+    px5m = px4m.mt_inpand(mode="square", chroma="none")
+    px6m = px5m.mt_inpand(mode="square", chroma="none")
+    px7m = px6m.mt_inpand(mode="square", chroma="none")
+
+    balloon = (mode ==  0) ? clp  :
+    \         (mode ==  1) ? px1  :
+    \         (mode ==  2) ? px2  :
+    \         (mode ==  3) ? px3  :
+    \         (mode ==  4) ? px4  :
+    \         (mode ==  5) ? px5  :
+    \         (mode ==  6) ? px6  :
+    \         (mode ==  7) ? px7  :
+    \         (mode == -1) ? px1m :
+    \         (mode == -2) ? px2m :
+    \         (mode == -3) ? px3m :
+    \         (mode == -4) ? px4m :
+    \         (mode == -5) ? px5m :
+    \         (mode == -6) ? px6m :
+    \         (mode == -7) ? px7m : nop
     return balloon
 }
 
