@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.46                                                                                  #
+#   Version: 1.47                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.47 : 2021/11/11.  Fixed: "Double Gscript".
 # Version 1.46 : 2021/11/11.  Support for AviSynth v2.6 [with the StainlessS's help].
 # Version 1.45 : 2021/11/07.  Fixed: Automask wasn't working if coords were "0,0,0,0".
 # Version 1.44 : 2021/11/05.  Refactored multipass deblending code.
@@ -90,14 +91,15 @@
 #  RgTools       ( https://github.com/pinterf/RgTools ).
 #  GRunT         ( https://github.com/pinterf/GRunT ).
 #  RequestLinear ( https://github.com/pinterf/TIVTC ).
-#  GScript       ( http://avisynth.nl/index.php/GScript ).
 #  ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
 #  RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
 #  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
 
 #   Notes for AviSynth v2.6 users:
+#  Requirement: GScript ( http://avisynth.nl/index.php/GScript ).
 #  "InpaintDelogo.avsi" needs to be renamed to "InpaintDelogo.avs",
-#  and loaded manually in AviSynth script with: GImport("C:\AviSynth 2.5\plugins\InpaintDelogo.avs")
+#  and loaded manually in AviSynth script with: GImport("C:\AviSynth 2.5\plugins\InpaintDelogo.avs"),
+#  or use AvsInit for autoloading ( https://forum.doom9.org/showthread.php?t=176749 ).
 #  Subs extraction is up to 600% slower than with AviSynth+!
 
 
@@ -2110,8 +2112,7 @@ function InpaintLoc ( clip clp, string "loc")
 ##================================================================================================##
 
 
-GScript("""
-    Function VFX1_GScript(clip c, string FrameDB, int CropW, int CropH) {
+Function VFX1(clip c, string FrameDB, int CropW, int CropH) {
         c
         n = current_frame
         Status = RT_DBaseGetField(FrameDB,n,0)
@@ -2120,8 +2121,7 @@ GScript("""
             if(Status == 1) { RT_DBaseSet(FrameDB,n,Status) }
         }
         Return Last
-    }
-""")
+}
 
 # Mod of StainlessS's 'DetSub_Extract.avs' - https://forum.doom9.org/showthread.php?p=1950193
 Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize") {
@@ -2167,7 +2167,7 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
 
     RT_DBaseAlloc(FrameDB,FC,"i")
     ARGS="FrameDB,CropW,CropH"
-    Parse = inY8.ScriptClip("VFX1_GScript("+args+")", local=true, args=ARGS, after_frame=true)
+    Parse = inY8.ScriptClip("VFX1("+args+")", local=true, args=ARGS, after_frame=true)
     Parse.RT_ForceProcess
 
 
