@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.45                                                                                  #
+#   Version: 1.46                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.46 : 2021/11/11.  Support for AviSynth v2.6 [with the StainlessS's help].
 # Version 1.45 : 2021/11/07.  Fixed: Automask wasn't working if coords were "0,0,0,0".
 # Version 1.44 : 2021/11/05.  Refactored multipass deblending code.
 # Version 1.43 : 2021/11/03.  Fixed: One pass Deblend didn't see A/C masks from multi pass. Changed: "Deep".
@@ -80,19 +81,24 @@
 ##================================================================================================##
 
 
-# Core requirements:
-#  AviSynth+ v3.6.2 or later ( https://github.com/AviSynth/AviSynthPlus ).
+#   Core requirements:
+#  AviSynth+ v3.6.2 or later ( https://github.com/AviSynth/AviSynthPlus ), or AviSynth v2.6.
 #  AvsInpaint v1.3 or later  ( https://github.com/pinterf/AvsInpaint ).
 
-# Other requirements:
+#   Other requirements:
 #  MaskTools2    ( https://github.com/pinterf/masktools ).
 #  RgTools       ( https://github.com/pinterf/RgTools ).
-#  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
-#  ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
-#  RequestLinear ( http://avisynth.nl/index.php/TIVTC ).
-#  RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
+#  GRunT         ( https://github.com/pinterf/GRunT ).
+#  RequestLinear ( https://github.com/pinterf/TIVTC ).
 #  GScript       ( http://avisynth.nl/index.php/GScript ).
-#  GRunT         ( http://avisynth.nl/index.php/GRunT ).
+#  ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
+#  RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
+#  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
+
+#   Notes for AviSynth v2.6 users:
+#  "InpaintDelogo.avsi" needs to be renamed to "InpaintDelogo.avs",
+#  and loaded manually in AviSynth script with: GImport("C:\AviSynth 2.5\plugins\InpaintDelogo.avs")
+#  Subs extraction is up to 600% slower than with AviSynth+!
 
 
 ##================================================================================================##
@@ -2103,6 +2109,20 @@ function InpaintLoc ( clip clp, string "loc")
 #   Subtitles Extractor functions:                                                                 #
 ##================================================================================================##
 
+
+GScript("""
+    Function VFX1_GScript(clip c, string FrameDB, int CropW, int CropH) {
+        c
+        n = current_frame
+        Status = RT_DBaseGetField(FrameDB,n,0)
+        if(Status == 0) {  # Unknown Status
+            Status = crop(CropW,CropH,-1*CropW,-1*CropH).AverageLuma.Sign
+            if(Status == 1) { RT_DBaseSet(FrameDB,n,Status) }
+        }
+        Return Last
+    }
+""")
+
 # Mod of StainlessS's 'DetSub_Extract.avs' - https://forum.doom9.org/showthread.php?p=1950193
 Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize") {
     StartTime   = TimerFX()
@@ -2146,16 +2166,8 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     #===========================================================#
 
     RT_DBaseAlloc(FrameDB,FC,"i")
-    VFX1="""
-        n = current_frame
-        Status = RT_DBaseGetField(FrameDB,n,0)
-        if(Status == 0) {  # Unknown Status
-            Status = crop(CropW,CropH,-1*CropW,-1*CropH).AverageLuma.Sign
-            if(Status == 1) { RT_DBaseSet(FrameDB,n,Status) }
-        }
-        Return Last
-    """
-    Parse = inY8.GScriptClip(VFX1, local=true, args="FrameDB,CropW,CropH", after_frame=true)
+    ARGS="FrameDB,CropW,CropH"
+    Parse = inY8.ScriptClip("VFX1_GScript("+args+")", local=true, args=ARGS, after_frame=true)
     Parse.RT_ForceProcess
 
 
