@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 1.47                                                                                  #
+#   Version: 1.48                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 1.48 : 2021/11/12.  Fixed: "Show=5" was broken since v1.36.
 # Version 1.47 : 2021/11/11.  Fixed: "Double Gscript".
 # Version 1.46 : 2021/11/11.  Support for AviSynth v2.6 [with the StainlessS's help].
 # Version 1.45 : 2021/11/07.  Fixed: Automask wasn't working if coords were "0,0,0,0".
@@ -1506,7 +1507,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   return delogopp2  """) : nop
 
     # dPP/oPP:
-    delogopp3   = (automask == 0 && Show != 4 && Show != 6) ? eval("""
+    delogopp3   = (automask == 0 && Show != 4 && Show != 5 && Show != 6) ? eval("""
                   delogopp3 = (mode == "inpaint"            ) ? inYV12.Overlay(delogo   .ppFX(opp), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
                   \           (mode != "inpaint" && dPP != 0) ? inYV12.Overlay(delogopp2.ppFX(dpp), Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
                   \           (dPPm != 0         && dPP == 0) ? inYV12.Overlay(delogopp2,           Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
