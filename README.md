@@ -30,16 +30,8 @@ GRunT         ( https://github.com/pinterf/GRunT ).
 RequestLinear ( https://github.com/pinterf/TIVTC ).
 ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
 RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
+FrameSel      ( http://avisynth.nl/index.php/FrameSel ).
 GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 )
- </code></pre>
- 
- <pre><code> 
-Notes for AviSynth v2.6 users:
-Requirement: GScript ( http://avisynth.nl/index.php/GScript ).
-"InpaintDelogo.avsi" needs to be renamed to "InpaintDelogo.avs",
-and loaded manually in AviSynth script with: GImport("C:\AviSynth 2.5\plugins\InpaintDelogo.avs"),
-or use AvsInit for autoloading ( https://forum.doom9.org/showthread.php?t=176749 ).
-Subs extraction is up to 600% slower than with AviSynth+!
  </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
