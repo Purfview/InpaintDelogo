@@ -20,7 +20,7 @@
  
 <pre><code> 
 Core requirements:
-AviSynth+ v3.6.2 or later ( https://github.com/AviSynth/AviSynthPlus ), or AviSynth v2.6.
+AviSynth+ v3.7.1 or later ( https://github.com/AviSynth/AviSynthPlus ).
 AvsInpaint v1.3 or later  ( https://github.com/pinterf/AvsInpaint ).
 
 Other requirements:
