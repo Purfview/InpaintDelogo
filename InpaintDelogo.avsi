@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.0                                                                                   #
+#   Version: 2.01                                                                                   #
 ##================================================================================================##
 
 
@@ -29,7 +29,9 @@
 # Doom9 link   : https://forum.doom9.org/showthread.php?p=1883832
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
-# Version 2.0  : 2021/12/04.  AviSynth+ v3.7.1 or later & FrameSel plugin is required.
+
+# Version 2.01 : 2021/12/05.  "Analyze" 3 option.
+# Version 2.00 : 2021/12/04.  AviSynth+ v3.7.1 or later & FrameSel plugin is required.
 #                             New: Old Deblend delogo is superceded by the new superior one.
 #                             New: Smart frames selection for analyze using "AnalyzeTh" & "NoBorderAt" parameters.
 #                             New: "Automask" adapted to the new stuff and it doesn't reanalyze when "aMix" is adjusted.
@@ -231,7 +233,9 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #
 #                     2 -  Smart auto selection of good frames to analyze.
 #                         Scans whole clip and checks only at the edges of the "Loc" (-4 pxs offset), so it's less precise than method 1.
-#                         It's meant for "Automask=1", but can be used for delogo too.
+#                         It's meant for "Automask=1", but can be used for Color/Alpha masks creation too.
+#
+#                     3 -  Analyzes all frames, doesn't run the selection of frames.
 #
 #
 #                     # Old deprecated inferior deblend:
@@ -255,7 +259,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 # Int "AnalyzeTh"   :   MinMax threshold. (from 1 to 255; default: 30)
 #                      Parameter only for "Analyze" 1/2/-1/-2.
 #                      Used to auto select the solid looking frames suitable for analysis.
-#                      1 - very solid, 255 - almost all frames will be selected for analysis.
+#                      1 - very solid, 255 - usually almost all frames will be selected for analysis.
 #                      Probably no need to touch it in the most cases.
 #                      Analysis needs higher amount of various frames to create the better Color/Alpha masks, but non solid frames can introduce artifacts into masks.
 #                      Txt file with a same filename as the Color/Alpha masks ebmp file will be created.
@@ -330,7 +334,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     2 - Adds 2 pixels to interp mask.
 
 
-# Int "iTune"       :  Creates a mask for "Interp"/"InterpM". (from -4 to 4; default: 0).
+# Int "iTune"       :  Creates a mask for "Interp"/"InterpM". (from -10 to 5; default: 0).
 #                     Creates mask for less transparent part of the logo.
 #                      Useful if logo has different levels of transparency, and you don't need to
 #                     interpolate very transparent parts as there will be almost no artifacts after deblend,
@@ -348,7 +352,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     3 - Inflate by 3 pixels.
 
 
-# Int "oTune"       :  Creation of the mask for "Both" mode. (from -4 to 4; default: 0).
+# Int "oTune"       :  Creation of the mask for "Both" mode. (from -10 to 5; default: 0).
 #                     Creates mask for opaque/hardly transparent part of the logo.
 #                     0 - doesn't mean that it's disabled, it is just a datum-point.
 #                     Higher values -> mask expands into more-transparent areas of the logo.
@@ -988,7 +992,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     DynPostTune = (ClpBlend == 0) ? default (DynPostTune , 0 ) :
     \                               default (DynPostTune , 1 )
     Dyn3buffer  = default (Dyn3buffer  , 1 )
-    AlphaTweak  = default (AlphaTweak  , 1 )
+    AlphaTweak  = default (AlphaTweak  , 0 )
 
     Extract     = Default(Extract     ,    0)
     CorrTh      = Default(CorrTh      ,  0.8)
@@ -1011,7 +1015,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     bugloc      = (loc          == ""                   ) ? true : false
     bugloc2     = (loc          == "100,100,-100,-100"  ) ? true : false
-    buganalyze  = (analyze     < -4 || analyze      >  2) ? true : false
+    buganalyze  = (analyze     < -4 || analyze      >  3) ? true : false
     buganalyze2 = (analyze     == 0                     ) ? true : false
     bugreanalyze= (reanalyze    < 0 || reanalyze    >  1) ? true : false
     bugdeep     = (deep         < 1 || deep         >  5) ? true : false
@@ -1032,8 +1036,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     buginflate  = (inflate      < 0 || inflate      >  2) ? true : false
     bugiInflate = (iTinflate    < 0 || iTinflate    >  3) ? true : false
     bugoInflate = (oTinflate    < 0 || oTinflate    >  3) ? true : false
-    bugotune    = (otune       < -4 || otune        >  4) ? true : false
-    bugitune    = (itune       < -4 || itune        >  4) ? true : false
+    bugotune    = (otune      < -10 || otune        >  5) ? true : false
+    bugitune    = (itune      < -10 || itune        >  5) ? true : false
     bugamix     = (amix        < -5 || amix         >  5) ? true : false
     bugshow     = (show         < 0 || show         >  9) ? true : false
     bugmshow    = (mshow        < 0 || mshow        >  9) ? true : false
@@ -1071,7 +1075,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugcombo10  = (dynmask3h != 0      && dynmask !=  3        ) ? true : false
     bugcombo11  = (Extract   == 1      && show    !=  4        ) ? true : false
     bugcombo12  = (Automask  == 1 && Analyze == 1 || Automask == 1 && Analyze == -1) ? true : false
-    bugcombo13  = ((Show == 7 || Show == 8 || Show == 9) && (Analyze == -3 || Analyze == -4 || Analyze == 0 )) ? true : false
+    bugcombo13  = ((Show == 7 || Show == 8 || Show == 9) && (Analyze == -3 || Analyze == -4 || Analyze == 0 || Analyze == 3)) ? true : false
     bugDyn3Seq     = (Dyn3Seq     < 10 || Dyn3Seq  >       9999) ? true : false
     bugClpBlend    = (ClpBlend     < 8 || ClpBlend >= Dyn3Seq-1) ? true : false
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
@@ -1097,7 +1101,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugcombo11        == false   , """Subtitles extraction works only with "Show=4" parameter.""")
     assert        ( bugcombo12        == false   , """"Analyze" 1 & -1 can't be used with "Automask=1".""")
     assert        ( bugcombo13        == false   , """Incompatible "Show" and "Analyze" parameters.""")
-    assert        ( buganalyze        == false  , """"Analyze" value must be between -4 and 2.""")
+    assert        ( buganalyze        == false  , """"Analyze" value must be between -4 and 3.""")
     assert        ( buganalyze2       == false  , """"Analyze" can't be 0.""")
     assert        ( bugreanalyze      == false  , """"ReAnalyze" value must be between 0 and 1.""")
     assert        ( bugdeep           == false  , """"Deep" value must be between 1 and 5.""")
@@ -1118,8 +1122,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( buginflate        == false  , """"Inflate" value must be between 0 and 2.""")
     assert        ( bugiInflate       == false  , """"iTinflate" value must be between 0 and 3.""")
     assert        ( bugoInflate       == false  , """"oTinflate" value must be between 0 and 3.""")
-    assert        ( bugotune          == false  , """"oTune" value must be between -4 and 4.""")
-    assert        ( bugitune          == false  , """"iTune" value must be between -4 and 4.""")
+    assert        ( bugotune          == false  , """"oTune" value must be between -10 and 5.""")
+    assert        ( bugitune          == false  , """"iTune" value must be between -10 and 5.""")
     assert        ( bugamix           == false  , """"aMix" value must be between -5 and 5.""")
     assert        ( bugshow           == false  , """"Show" value must be between 0 and 9.""")
     assert        ( bugmshow          == false  , """"mShow" value must be between 0 and 8.""")
@@ -1297,7 +1301,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     CoordsID    = string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))
 
-    if(analyze > 0) {
+    if(analyze == 3) {
+        LogoID = MskName+"_InpaintDelogo2_"+CoordsID+"_A"+string(Analyze)
+    } else if(analyze > 0) {
         LogoID = MskName+"_InpaintDelogo2_"+CoordsID+"_A"+string(Analyze)+"-"+string(AnalyzeTh)
     } else if(analyze == -1 || analyze == -2 ) {
         LogoID = MskName+"_InpaintDelogo2_"+CoordsID+"_A"+string(Analyze)+"-"+string(AnalyzeTh)+"_Deep1"
@@ -1351,8 +1357,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                 inRGB24.AnalyzeMethods(Analyze, blankwht=blankwht, FrB=FrB, FrW=FrW, FrS=FrS, frx=frx, FramesLog=LogoID)
                 last.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32
             } else if(Analyze == 2) {
-                inYV12 .AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
+                inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
                 last.ConvertToY8.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32(matrix=matrixID)
+            } else if(Analyze == 3) {
+                inYV12.ConvertToY8.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32(matrix=matrixID)
             }
             Crop(0,last.Height/2,0,0)
             ImageWriter(AutoID  + "%.0d.bmp",0,-1,"bmp").RT_YankChain(n=0)
@@ -1376,7 +1384,11 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                 Logo = ImageSource(LogoID + "%.0d.ebmp",0,0)
             } else {
                 RT_FileDelete(LogoID +".txt")
-                inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
+                if(analyze == 3) {
+                    inYV12
+                } else {
+                    inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
+                }
                 YYY = last.ConvertToY8
                 UUU = last.UToY8
                 VVV = last.VToY8
