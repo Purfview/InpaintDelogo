@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.01                                                                                   #
+#   Version: 2.02                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,10 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.02 : 2021/12/10.  Fixed: "Analyze=1" bug.
+#                             +11% deblend speed-up.
+#                             Tweaked "aMix". "Analyze=2" is default. Adaptive "AnalyzeTh" default [16 or 30].
+#                             Don't search frames for analyse if 'txt' file is present and ReAnalyze=0.
 # Version 2.01 : 2021/12/05.  "Analyze" 3 option.
 # Version 2.00 : 2021/12/04.  AviSynth+ v3.7.1 or later & FrameSel plugin is required.
 #                             New: Old Deblend delogo is superceded by the new superior one.
@@ -138,23 +142,16 @@
                  #    Short basic guide:   #
                  #=========================#
 
-#     ( Things you need before starting InpaintDelogo() )
+#     ( Things you need before starting delogo )
 #
 # 0)  Read help/manual(in the script) about parameters mentioned below.
-# 1)  Run this function to get "Loc" values: InpaintLoc(Loc="100,100,-100,-100") .
-#     Adjust "Loc" crop parameters around logo (aka "Left,Top,-Right,-Bottom").
-#     Use even(mod2) numbers.
-# 2)  Get frames numbers for manual "Analyze" (you can skip it for slower & lower quality job).
-# 3)  Prepare the "mask" manually, or start the function with "Automask=1".
-# 4)  Now you can add this stuff from above to InpaintDelogo() function and run it.
+# 1)  Run this function to get "Loc" values: InpaintLoc(Loc="100,100,-100,-100"). Adjust "Loc" crop parameters around logo (aka "Left,Top,-Right,-Bottom"). Use even(mod2) numbers.
+# 2)  Prepare the "mask" manually, or start InpaintDelogo with "Automask=1" and "Analyze=2", automask result can be adjusted with"aMix".
 
-#  Basic example:
+#  Basic example for non-transparent logo:
 /*
 
-InpaintDelogo( mask="c:\test\mymask.bmp",
-\ Automask=0, aMix=0, Loc="100,100,-100,-100",
-\ Mode="Inpaint",
-\ Analyze=1, FrB=0, FrW=0, FrS=0)
+InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", Mode="Inpaint")
 
 */
 
@@ -196,7 +193,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     1 - On. Generates the base mask. Script doesn't do anything else when "On"!
 
 
-# Int "aMix"        :  Parameter is only for "Automask=1" (from -5 to 5; default: 0).
+# Int "aMix"        :  Parameter is only for "Automask=1" (from -50 to 5; default: 0).
 #                     Lower values = "thinner" mask, higher = "thicker" mask.
 #                     Adjust it to generate precise mask of the logo, sometimes it's not possible
 #                     then create a mask manually with Photoshop ect..
@@ -223,17 +220,16 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                     Note: Clip is parsed ~few times when doing analysis, so keep that in mind if there is heavy filtering like QTGMC
 #                           in a script before InpaintDelogo, then faster is to make an intermediate lossless encode before doing analysis and delogo.
 #                     When "Automask=1" it creates the base mask, nothing else!!!
-#                     (Adaptive default: 0 - forced for "Inpaint" mode; 1 - for other modes)
+#                     (Adaptive default: 0 - forced for "Inpaint" mode; 2 - for other modes)
 #
 #                     0 - "Disabled". Not selectable.
 #
-#                     1 -  Smart auto selection of good frames to analyze. Should be best.
-#                         Scans whole clip and checks only pixels at the edges of the base mask (+4 pxs offset).
-#                         It can't be used for "Automask=1".
+#                     1 -  Smart auto selection of good frames to analyze.
+#                         Scans whole clip and checks only pixels at the edges of the base mask (~2|3 pxs offset).
+#                         Should be more precise than 2, but it can't be used for "Automask=1".
 #
 #                     2 -  Smart auto selection of good frames to analyze.
-#                         Scans whole clip and checks only at the edges of the "Loc" (-4 pxs offset), so it's less precise than method 1.
-#                         It's meant for "Automask=1", but can be used for Color/Alpha masks creation too.
+#                         Scans whole clip and checks only at the edges of the "Loc" (4 pxs offset).
 #
 #                     3 -  Analyzes all frames, doesn't run the selection of frames.
 #
@@ -256,13 +252,14 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 #                         Setup is similar as method "-3", just without "FrW" (it will be ignored).
 
 
-# Int "AnalyzeTh"   :   MinMax threshold. (from 1 to 255; default: 30)
+# Int "AnalyzeTh"   :   MinMax threshold. (from 1 to 255; Adaptive default: if clip is > ~30 mins then to 16 or 30)
 #                      Parameter only for "Analyze" 1/2/-1/-2.
 #                      Used to auto select the solid looking frames suitable for analysis.
 #                      1 - very solid, 255 - usually almost all frames will be selected for analysis.
 #                      Probably no need to touch it in the most cases.
 #                      Analysis needs higher amount of various frames to create the better Color/Alpha masks, but non solid frames can introduce artifacts into masks.
-#                      Txt file with a same filename as the Color/Alpha masks ebmp file will be created.
+#                      Txt file with found frames will be created (same filename as the Color/Alpha masks ebmp file).
+#                      If there are less that ~1000 frames found then try to set to 30 or higher.
 #                      "Show" 7/8/9 can be used to check stuff.
 
 
@@ -869,7 +866,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 
 InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Automask=0, aMix=0, Loc="100,100,-100,-100", Mode="Inpaint",
-\ Analyze=1, FrB=0, FrW=0, FrS=0, AnalyzeTh=30, NoBorderAt="none",
+\ Analyze=2, FrB=0, FrW=0, FrS=0, AnalyzeTh=30, NoBorderAt="none",
 \ Inflate=1, Deep=3, ReAnalyze=0,
 \ Interp=2, IntSpd=1, InterpM=0, iTune=0, iTinflate=0,
 \ dPP=3, dPPm=3,
@@ -935,7 +932,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     maskPatch   = default (maskPatch , ""  )
     loc         = default (loc       , ""  )
     mode        = default (mode , "inpaint")
-    analyze     = default (analyze     , 1 )
+    analyze     = default (analyze     , 2 )
     deep        = default (deep        , 3 )
     FrB         = default (FrB         , 0 )
     FrW         = default (FrW         , 0 )
@@ -992,7 +989,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     DynPostTune = (ClpBlend == 0) ? default (DynPostTune , 0 ) :
     \                               default (DynPostTune , 1 )
     Dyn3buffer  = default (Dyn3buffer  , 1 )
-    AlphaTweak  = default (AlphaTweak  , 0 )
+    AlphaTweak  = default (AlphaTweak  , 1 )
 
     Extract     = Default(Extract     ,    0)
     CorrTh      = Default(CorrTh      ,  0.8)
@@ -1005,7 +1002,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     ImgSize     = Default(ImgSize     ,    1)
     ImgDir      = Default(ImgDir      ,   "")
 
-    AnalyzeTh   = default (AnalyzeTh  ,   30)
+    AnalyzeTh   = (clp.FrameCount < 45000) ? default (AnalyzeTh, 30) :
+    \                                        default (AnalyzeTh, 16)
     NoBorderAt  = default (NoBorderAt , "none")
 
 
@@ -1038,7 +1036,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugoInflate = (oTinflate    < 0 || oTinflate    >  3) ? true : false
     bugotune    = (otune      < -10 || otune        >  5) ? true : false
     bugitune    = (itune      < -10 || itune        >  5) ? true : false
-    bugamix     = (amix        < -5 || amix         >  5) ? true : false
+    bugamix     = (amix       < -50 || amix         >  5) ? true : false
     bugshow     = (show         < 0 || show         >  9) ? true : false
     bugmshow    = (mshow        < 0 || mshow        >  9) ? true : false
     bugrsize    = (rsize        < 1 || rsize        >  9) ? true : false
@@ -1124,7 +1122,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugoInflate       == false  , """"oTinflate" value must be between 0 and 3.""")
     assert        ( bugotune          == false  , """"oTune" value must be between -10 and 5.""")
     assert        ( bugitune          == false  , """"iTune" value must be between -10 and 5.""")
-    assert        ( bugamix           == false  , """"aMix" value must be between -5 and 5.""")
+    assert        ( bugamix           == false  , """"aMix" value must be between -50 and 5.""")
     assert        ( bugshow           == false  , """"Show" value must be between 0 and 9.""")
     assert        ( bugmshow          == false  , """"mShow" value must be between 0 and 8.""")
     assert        ( bugrsize          == false  , """"rSize" value must be between 1 and 9.""")
@@ -1331,6 +1329,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     BasemaskY   = Imgmask.ConvertToY8(Matrix="PC.601").mt_expand().mt_expand()
     BasemaskUV  = BasemaskY.PointResize(LocW/2, LocH/2)
 
+    Assert (!(LocW != Imgmask.width || LocH != Imgmask.height), """Clip and "mask" image must have same dimensions.""")
 
     # Auto-Generation of the base mask. #
     #===================================#
@@ -1352,7 +1351,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
         if(reanalyze == 0 && Exist(AutoID +".bmp")) {
             ImageSource(AutoID + "%.0d.bmp",0,0)
         } else {
-            RT_FileDelete(LogoID +".txt")
+            if(reanalyze == 1) {
+                RT_FileDelete(LogoID +".txt")
+            }
             if(Analyze == -3 || Analyze == -4 || Analyze == -2) {
                 inRGB24.AnalyzeMethods(Analyze, blankwht=blankwht, FrB=FrB, FrW=FrW, FrS=FrS, frx=frx, FramesLog=LogoID)
                 last.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32
@@ -1383,7 +1384,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             if(reanalyze == 0 && Exist(LogoID +".ebmp")) {
                 Logo = ImageSource(LogoID + "%.0d.ebmp",0,0)
             } else {
-                RT_FileDelete(LogoID +".txt")
+                if(reanalyze == 1) {
+                    RT_FileDelete(LogoID +".txt")
+                }
                 if(analyze == 3) {
                     inYV12
                 } else {
@@ -1410,7 +1413,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                 if(Analyze == 0 || Analyze < -2) {
                     inRGB24.AnalyzeMethods(Analyze, blankwht=blankwht, FrB=FrB, FrW=FrW, FrS=FrS, frx=frx)
                 } else if(Analyze == -1 || Analyze == -2) {
-                    RT_FileDelete(LogoID +".txt")
+                    if(reanalyze == 1) {
+                        RT_FileDelete(LogoID +".txt")
+                    }
                     inRGB24.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
                 }
                 last.Analyzelogo(Basemask,DeviationWeight=0.5).Trim(0,-1).ConvertToRGB32
@@ -1435,7 +1440,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             LogoColorV  = Logo.Crop(Logo.Width/3*2,0,0,0).Crop(0,Logo.Height/2,0,0).Crop(0,0,0,Logo.Height/4)
             LogoAlphaV  = Logo.Crop(Logo.Width/3*2,0,0,0).Crop(0,Logo.Height/2,0,0).Crop(0,Logo.Height/4,0,0)
 
-            LogoColor   = YToUV(LogoColorU.PointResize(LocW,LocH), LogoColorV.PointResize(LocW,LocH)).MergeLuma(LogoColorY).ConvertToYV12(chromaresample ="point").ConvertToRGB24(Matrix="Rec601") # just for Show
+            LogoColor   = CombinePlanes(LogoColorY, LogoColorU, LogoColorV, planes="YUV", source_planes="YYY", pixel_type="YV12").ConvertToRGB24(Matrix="Rec601") # just for Show
             LogoAlpha   = LogoAlphaY.ConvertToRGB32(Matrix="Rec601").Mask(LogoAlphaY.ConvertToRGB32(Matrix="Rec601"))
         } else {
             LogoColor   = Logo.Crop(0,0,0,Logo.Height/2).ConvertToRGB24
@@ -1488,7 +1493,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             OutY        = inYV12Y.DeblendLogo(LogoColorY,  LogoAlphaY)
             OutU        = inYV12U.DeblendLogo(LogoColorU,  LogoAlphaU)
             OutV        = inYV12V.DeblendLogo(LogoColorV,  LogoAlphaV)
-            LogoDeblPre = YToUV(OutU.PointResize(LocW,LocH), OutV.PointResize(LocW,LocH)).MergeLuma(OutY).ConvertToYV12(chromaresample="point")
+            LogoDeblPre = CombinePlanes(OutY, OutU, OutV, planes="YUV", source_planes="YYY", pixel_type="YV12")
         } else {
             if(deep != 1) {
                 LogoDeblPre = inRGB24.MultiPassDeblendFX(Basemask,blankwht,a,b,c,d,MskName,Deep,FrB,FrW,frs,frx,BasemaskP,Analyze,Reanalyze,AnalyzeTh,NoBorderAt,LogoID,0).ConvertToYV12(matrix=matrixID)
@@ -1789,7 +1794,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             } , local = true)
         }
 
-
     } else if(show == 8) { # "Show" 8
 
         (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=2) :
@@ -1960,10 +1964,10 @@ function AnalyzeMethods(clip clp, int Analyze, val "blankwht", int "FrB", int "F
             # Crop 2x2 pxs area from above or below the logo and make a background from it
             mid = (VW-mL+mR)/2+mL
             mid = mid + (mid % 2)
-            clp2x2 = (mT >= -1*mB) ? clp.crop(mid-2, mT-2, -1*(VW-mid), -VH+mT+2) : clp.crop(mid-2, VH+mB-2, -1*(VW-mid), mB+2)
+            clp2x2 = (mT >= -1*mB) ? clp.crop(mid-2, mT-2, -1*(VW-mid), -VH+mT) : clp.crop(mid-2, VH+mB, -1*(VW-mid), mB+2)
             clpB = clp2x2.PointResize(VW, VH)
 
-            Msk1 = mask.MTballoon2PX(2).mt_logic(mask, mode="xor")  # 2px wide mask around logo (+2px offset from the base mask)
+            Msk1 = mask.MTballoon2PX(2).mt_logic(mask, mode="xor")  # 2px wide mask around logo (+2|3 px offset from the base mask)
             clp5 = clpB.Overlay(clp, mask=Msk1)
 
         } else if(analyze == 2 || analyze == -2){
