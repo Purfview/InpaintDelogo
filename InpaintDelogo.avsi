@@ -230,6 +230,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #
 #                     2 -  Smart auto selection of good frames to analyze.
 #                         Scans whole clip and checks only at the edges of the "Loc" (4 pxs offset).
+#                         "NoBorderAt" parameter must be set accordingly.
 #
 #                     3 -  Analyzes all frames, doesn't run the selection of frames.
 #
