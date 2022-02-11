@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.03                                                                                  #
+#   Version: 2.04                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,9 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.04 : 2022/02/11.  Improved deblend quality with positive "Analyze" when frames quantity to analyze is low.
+#                             Tweaked: A/C masks filename from negative "Analyze" ('Deep' goes to the end of the filename).
+#                             Tweaked: "iTune", "EdgeWide".
 # Version 2.03 : 2021/12/13.  Tweaked "DynTune".
 # Version 2.02 : 2021/12/10.  Fixed: "Analyze=1" bug.
 #                             +11% deblend speed-up.
@@ -237,7 +240,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #
 #
 #                     # Old deprecated inferior deblend:
-#                     # Still here for some exotic use cases, for example to deblend the image file...
+#                     # Still here for some exotic use cases, for example to deblend the image file or very short video...
 #
 #                    -1 - Mirrors frame selection of method 1, but it's not the same.
 #
@@ -333,7 +336,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     2 - Adds 2 pixels to interp mask.
 
 
-# Int "iTune"       :  Creates a mask for "Interp"/"InterpM". (from -10 to 5; default: 0).
+# Int "iTune"       :  Creates a mask for "Interp"/"InterpM". (from -10 to 10; default: 0).
 #                     Creates mask for less transparent part of the logo.
 #                      Useful if logo has different levels of transparency, and you don't need to
 #                     interpolate very transparent parts as there will be almost no artifacts after deblend,
@@ -644,6 +647,8 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #
 #                     0 - 2px wide mask.
 #                     1 - 4px wide mask.
+#                     2 - 6px wide mask.
+#                     3 - 8px wide mask.
 
 
                  #=========================#
@@ -1037,7 +1042,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugiInflate = (iTinflate    < 0 || iTinflate    >  3) ? true : false
     bugoInflate = (oTinflate    < 0 || oTinflate    >  3) ? true : false
     bugotune    = (otune      < -10 || otune        >  5) ? true : false
-    bugitune    = (itune      < -10 || itune        >  5) ? true : false
+    bugitune    = (itune      < -10 || itune       >  10) ? true : false
     bugamix     = (amix       < -50 || amix         >  5) ? true : false
     bugshow     = (show         < 0 || show         >  9) ? true : false
     bugmshow    = (mshow        < 0 || mshow        >  9) ? true : false
@@ -1060,7 +1065,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugturbo    = (turbo        < 0 || turbo        >  3) ? true : false
     bugedgepp   = (edgepp       < 0 || edgepp       >  3) ? true : false
     bugedgepos  = (edgepos     < -1 || edgepos      >  1) ? true : false
-    bugedgewide = (edgewide     < 0 || edgewide     >  1) ? true : false
+    bugedgewide = (edgewide     < 0 || edgewide     >  3) ? true : false
     bugintspd   = (intspd       < 1 || intspd       >  3) ? true : false
     bugmode     = (mode         != "inpaint" && mode != "deblend" && mode != "both" ) ? true : false
     bugcombo1   = (mode         == "inpaint" && mshow   >  4 && mshow <  9) ? true : false
@@ -1076,6 +1081,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugcombo11  = (Extract   == 1      && show    !=  4        ) ? true : false
     bugcombo12  = (Automask  == 1 && Analyze == 1 || Automask == 1 && Analyze == -1) ? true : false
     bugcombo13  = ((Show == 7 || Show == 8 || Show == 9) && (Analyze == -3 || Analyze == -4 || Analyze == 0 || Analyze == 3)) ? true : false
+    bugcombo14  = (mShow          == 8 && edgePP  ==  0        ) ? true : false
     bugDyn3Seq     = (Dyn3Seq     < 10 || Dyn3Seq  >       9999) ? true : false
     bugClpBlend    = (ClpBlend     < 8 || ClpBlend >= Dyn3Seq-1) ? true : false
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
@@ -1101,6 +1107,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugcombo11        == false   , """Subtitles extraction works only with "Show=4" parameter.""")
     assert        ( bugcombo12        == false   , """"Analyze" 1 & -1 can't be used with "Automask=1".""")
     assert        ( bugcombo13        == false   , """Incompatible "Show" and "Analyze" parameters.""")
+    assert        ( bugcombo14        == false   , """Incompatible "EdgePP" and "mShow" parameters.""")
     assert        ( buganalyze        == false  , """"Analyze" value must be between -4 and 3.""")
     assert        ( buganalyze2       == false  , """"Analyze" can't be 0.""")
     assert        ( bugreanalyze      == false  , """"ReAnalyze" value must be between 0 and 1.""")
@@ -1123,7 +1130,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugiInflate       == false  , """"iTinflate" value must be between 0 and 3.""")
     assert        ( bugoInflate       == false  , """"oTinflate" value must be between 0 and 3.""")
     assert        ( bugotune          == false  , """"oTune" value must be between -10 and 5.""")
-    assert        ( bugitune          == false  , """"iTune" value must be between -10 and 5.""")
+    assert        ( bugitune          == false  , """"iTune" value must be between -10 and 10.""")
     assert        ( bugamix           == false  , """"aMix" value must be between -50 and 5.""")
     assert        ( bugshow           == false  , """"Show" value must be between 0 and 9.""")
     assert        ( bugmshow          == false  , """"mShow" value must be between 0 and 8.""")
@@ -1146,7 +1153,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugturbo          == false  , """"Turbo" value must be between 0 and 3.""")
     assert        ( bugedgepp         == false  , """"EdgePP" value must be between 0 and 3.""")
     assert        ( bugedgepos        == false  , """"EdgePos" value must be between -1 and 1.""")
-    assert        ( bugedgewide       == false  , """"EdgeWide" value must be between 0 and 1.""")
+    assert        ( bugedgewide       == false  , """"EdgeWide" value must be between 0 and 3.""")
     assert        ( bugintspd         == false  , """"IntSpd" value must be between 1 and 3.""")
     (automask == 1) ? assert ( revstr(mask).findstr("pmb.") == 1 , """Try bmp extension for "mask".""") : nop
     assert        ( bugDyn3Seq        == false  , """"Dyn3Seq" is out of the optimal range.""")
@@ -1252,6 +1259,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     Assert (a%2 == 0 && b%2 == 0 && c%2 == 0 && d%2 == 0,"""Use even numbers for "Loc".""")
 
     inYV12      = clp.Crop(a,b,c,d).ConvertToYV12(matrix=matrixID)
+    inYV12fc    = inYV12.framecount
     inY8        = clp.Crop(a,b,c,d).ConvertToY8(matrix=matrixID)
     inRGB24     = clp.Crop(a,b,c,d).ConvertToRGB24(matrix=matrixID)
     inRGB32     = clp.Crop(a,b,c,d).ConvertToRGB32(matrix=matrixID)
@@ -1308,7 +1316,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     } else if(analyze == -1 || analyze == -2 ) {
         LogoID = MskName+"_InpaintDelogo2_"+CoordsID+"_A"+string(Analyze)+"-"+string(AnalyzeTh)+"_Deep1"
     } else {
-        LogoID = MskName+"_InpaintDelogo2_"+CoordsID+"_A"+string(Analyze)+"_Deep1"+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs)
+        LogoID = MskName+"_InpaintDelogo2_"+CoordsID+"_A"+string(Analyze)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs)+"_Deep1"
     }
 
 
@@ -1390,7 +1398,21 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                     RT_FileDelete(LogoID +".txt")
                 }
                 if(analyze == 3) {
-                    inYV12
+                    if (inYV12fc < 10) {
+                        inYV12.loop(200)
+                    } else if (inYV12fc < 20) {
+                        inYV12.loop(40)
+                    } else if (inYV12fc < 40) {
+                        inYV12.loop(20)
+                    } else if (inYV12fc < 80) {
+                        inYV12.loop(10)
+                    } else if (inYV12fc < 160) {
+                        inYV12.loop(5)
+                    } else if (inYV12fc < 320) {
+                        inYV12.loop(2)
+                    } else {
+                        inYV12
+                    }
                 } else {
                     inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
                 }
@@ -1477,8 +1499,16 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                       EdgeMaskD2  = edgeSource.balloonPX(-2)
                       EdgeMaskI2  = edgeSource.balloonPX(2)
                       EdgeMerge2  = EdgeMaskI2.Overlay(eBlackclp, Mask=EdgeMaskD2)
+                      EdgeMaskD3  = edgeSource.balloonPX(-3)
+                      EdgeMaskI3  = edgeSource.balloonPX(3)
+                      EdgeMerge3  = EdgeMaskI3.Overlay(eBlackclp, Mask=EdgeMaskD3)
+                      EdgeMaskD4  = edgeSource.balloonPX(-4)
+                      EdgeMaskI4  = edgeSource.balloonPX(4)
+                      EdgeMerge4  = EdgeMaskI4.Overlay(eBlackclp, Mask=EdgeMaskD4)
                       EdgeMask    = (edgeWide == 0) ? EdgeMerge1.Mask(EdgeMerge1):
-                      \                               EdgeMerge2.Mask(EdgeMerge2)
+                      \             (edgeWide == 1) ? EdgeMerge2.Mask(EdgeMerge2):
+                      \             (edgeWide == 2) ? EdgeMerge3.Mask(EdgeMerge3):
+                      \                               EdgeMerge4.Mask(EdgeMerge4)
                       return EdgeMask """) : nop
     }
 
@@ -1848,7 +1878,7 @@ function MultiPassDeblendFX(clip inRGB24, clip Basemask, clip blankwht, int a, i
     if(analyze == -1 || analyze == -2) {
         DeepID = MskName+"_InpaintDelogo2_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(Analyze)+"-"+string(AnalyzeTh)+"_Deep"+string(Pass)
     } else {
-        DeepID = MskName+"_InpaintDelogo2_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(Analyze)+"_Deep"+string(Pass)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs)
+        DeepID = MskName+"_InpaintDelogo2_"+string(a)+"-"+string(b)+"-"+string(abs(c))+"-"+string(abs(d))+"_A"+string(Analyze)+"_"+string(FrB)+"-"+string(FrW)+"-"+string(frs)+"_Deep"+string(Pass)
     }
     ACmaskfile = DeepID + ".ebmp"
 
@@ -2051,6 +2081,19 @@ function AnalyzeMethods(clip clp, int Analyze, val "blankwht", int "FrB", int "F
         Preamble = "# Total frames to analyze: " +string(res.FrameCount)
         S=RT_ReadTxtFromFile(FramesLog)
         RT_WriteFile(FramesLog,"%s\n%s",Preamble,S)
+        if (res.FrameCount < 10) {
+          res = res.loop(200)
+        } else if (res.FrameCount < 20) {
+          res = res.loop(40)
+        } else if (res.FrameCount < 40) {
+          res = res.loop(20)
+        } else if (res.FrameCount < 80) {
+          res = res.loop(10)
+        } else if (res.FrameCount < 160) {
+          res = res.loop(5)
+        } else if (res.FrameCount < 320) {
+          res = res.loop(2)
+        }
     }
 
     out = (analyze == -3 || analyze == -4 || analyze == 0) ? method : res
@@ -2235,6 +2278,8 @@ function balloonPX(clip clp, int "mode") {
 
     mpx1        = clp .DistanceFunction(-96).Levels(150,1,151,0,255)
     mpx2        = mpx1.DistanceFunction(-96).Levels(150,1,151,0,255)
+    mpx3        = mpx2.DistanceFunction(-96).Levels(150,1,151,0,255)
+    mpx4        = mpx3.DistanceFunction(-96).Levels(150,1,151,0,255)
 
     mpx7        = clp.DistanceFunction(-32).Levels(240,1,241,0,255)
 
@@ -2246,11 +2291,13 @@ function balloonPX(clip clp, int "mode") {
     \             (mode ==  1) ? px1  .ShowAlpha :
     \             (mode ==  2) ? px2  .ShowAlpha :
     \             (mode ==  3) ? px3  .ShowAlpha :
-    \             (mode ==  4) ? px3  .ShowAlpha :
+    \             (mode ==  4) ? px4  .ShowAlpha :
     \             (mode == 99) ? kill .ShowAlpha :
     \             (mode == 88) ? kill2.ShowAlpha :
     \             (mode == -1) ? mpx1 .ShowAlpha :
     \             (mode == -2) ? mpx2 .ShowAlpha :
+    \             (mode == -3) ? mpx3 .ShowAlpha :
+    \             (mode == -4) ? mpx4 .ShowAlpha :
     \             (mode == -7) ? mpx7 .ShowAlpha : nop
     return balloon
 }
