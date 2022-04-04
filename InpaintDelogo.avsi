@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.04                                                                                  #
+#   Version: 2.05                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,9 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.05 : 2022/04/04.  Masktools2 v2.2.30 or later is required.
+#                             Tweaked: "DynMask=4" and positive "DynMaskUp", should be a bit faster and no more glitches.
+#                             New: "DynLocUp" [Experimental WIP parameter for tests].
 # Version 2.04 : 2022/02/11.  Improved deblend quality with positive "Analyze" when frames quantity to analyze is low.
 #                             Tweaked: A/C masks filename from negative "Analyze" ('Deep' goes to the end of the filename).
 #                             Tweaked: "iTune", "EdgeWide".
@@ -571,9 +574,14 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 
 # Int "DynMaskUp"   :  Parameter for "DynMask=4".
 #                     Only to get a neat upsized subtitles mask on Show=4 output. (from -4 to 4; default: 0).
-#                     Resolution is multiplied by parameter (-1/0/1 - Disabled).
+#                     Resolution is multiplied by parameter (-1/0/1 = Disabled).
 #                     Positive: First set everything without this parameter as all filtering is done on a not-upsized mask, which is used to do hysteresis into the upsized mask.
 #                     Negative: Does filtering on the upsized mask (experimental, WIP).
+
+# Int "DynLocUp"   :  Experimental WIP parameter for tests, alternative to negative "DynMaskUp". Tested only with "DynMask=4", may work with other methods, may break things.
+#                     Vs negative "DynMaskUp": ~50%-30% faster. Doesn't destroy slim characters [like hieroglyphs], but doesn't remove some noise.
+#                     Only to get a neat upsized subtitles mask on Show=4 output. (from 0 to 4; default: 0).
+#                     Resolution is multiplied by parameter (0/1 = Disabled).
 
 
                  #==================#
@@ -885,7 +893,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ KillBlobs=0, preBlobs=0, KillNoise=0, rePass=0,
 \ Dyn3Seq=12, ClpBlend=0, DynPostTune=0, Dyn3buffer=1,
 \ DynMask3H=0, ModeSH=1, TuneH1=0, TuneH2=0, TuneH3=0, KillNoiseH=0, rePassH=0,
-\ DynMask4H=60, DynMaskUp=0,
+\ DynMask4H=60, DynMaskUp=0, DynLocUp=0,
 \ Extract=0,
 \ GrainPP=0,
 \ Sharpness=45, PreBlur=6.5, PostBlur=4.0, Radius=8.0,
@@ -913,7 +921,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "ClpBlend", int "DynPostTune", int "Dyn3Seq", int "Dyn3buffer",
 \                        int "KillBlobs", int "preBlobs", int "rePass",
 \                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
-\                        int "DynMask4H", int "DynMaskUp",
+\                        int "DynMask4H", int "DynMaskUp", int "DynLocUp",
 \                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize",
 \                        int "AnalyzeTh", String "NoBorderAt", float "AlphaTweak")
 
@@ -969,6 +977,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     tuneh3      = default (tuneh3      , 0 )
     dynmask4h   = default (dynmask4h  , 60 )
     dynmaskup   = default (dynmaskup   , 0 )
+    dynlocup    = default (dynlocup    , 0 )
     killnoiseh  = default (killnoiseh  , 0 )
     repassh     = default (repassh     , 0 )
     prepp       = default (prepp       , 0 )
@@ -1062,6 +1071,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugrepassh  = (repassh      < 0 || repassh      >  1) ? true : false
     bugdynmask4h= (dynmask4h    < 1 || dynmask4h  >  150) ? true : false
     bugdynmaskup= (dynmaskup   < -4 || dynmaskup    >  4) ? true : false
+    bugdynlocup = (dynlocup     < 0 || dynlocup     >  4) ? true : false
     bugturbo    = (turbo        < 0 || turbo        >  3) ? true : false
     bugedgepp   = (edgepp       < 0 || edgepp       >  3) ? true : false
     bugedgepos  = (edgepos     < -1 || edgepos      >  1) ? true : false
@@ -1082,6 +1092,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugcombo12  = (Automask  == 1 && Analyze == 1 || Automask == 1 && Analyze == -1) ? true : false
     bugcombo13  = ((Show == 7 || Show == 8 || Show == 9) && (Analyze == -3 || Analyze == -4 || Analyze == 0 || Analyze == 3)) ? true : false
     bugcombo14  = (mShow          == 8 && edgePP  ==  0        ) ? true : false
+    bugcombo15  = (dynmaskup       < 0 && dynlocup  >  0       ) ? true : false
     bugDyn3Seq     = (Dyn3Seq     < 10 || Dyn3Seq  >       9999) ? true : false
     bugClpBlend    = (ClpBlend     < 8 || ClpBlend >= Dyn3Seq-1) ? true : false
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
@@ -1108,6 +1119,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugcombo12        == false   , """"Analyze" 1 & -1 can't be used with "Automask=1".""")
     assert        ( bugcombo13        == false   , """Incompatible "Show" and "Analyze" parameters.""")
     assert        ( bugcombo14        == false   , """Incompatible "EdgePP" and "mShow" parameters.""")
+    assert        ( bugcombo15        == false   , """Incompatible "DynMaskUp" and "DynLocUp" parameters.""")
     assert        ( buganalyze        == false  , """"Analyze" value must be between -4 and 3.""")
     assert        ( buganalyze2       == false  , """"Analyze" can't be 0.""")
     assert        ( bugreanalyze      == false  , """"ReAnalyze" value must be between 0 and 1.""")
@@ -1148,8 +1160,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugtuneh3         == false  , """"TuneH3" value must be between 0 and 3.""")
     assert        ( bugkillnoiseh     == false  , """"KillNoiseH" value must be between 0 and 2.""")
     assert        ( bugrepassh        == false  , """"RePassH" value must be between 0 and 1.""")
-    assert        ( bugdynmask4h      == false  , """"DynMask4H" value must be between 1 and 128.""")
+    assert        ( bugdynmask4h      == false  , """"DynMask4H" value must be between 1 and 150.""")
     assert        ( bugdynmaskup      == false  , """"DynMaskUp" value must be between -4 and 4.""")
+    assert        ( bugdynlocup       == false  , """"DynLocUp" value must be between 0 and 4.""")
     assert        ( bugturbo          == false  , """"Turbo" value must be between 0 and 3.""")
     assert        ( bugedgepp         == false  , """"EdgePP" value must be between 0 and 3.""")
     assert        ( bugedgepos        == false  , """"EdgePos" value must be between -1 and 1.""")
@@ -1260,7 +1273,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     inYV12      = clp.Crop(a,b,c,d).ConvertToYV12(matrix=matrixID)
     inYV12fc    = inYV12.framecount
-    inY8        = clp.Crop(a,b,c,d).ConvertToY8(matrix=matrixID)
+    inY8        = (DynLocUp < 2) ? clp.Crop(a,b,c,d).ConvertToY8(matrix=matrixID) : clp.Crop(a,b,c,d).ConvertToY8(matrix=matrixID).SincResize(inYV12.width*Abs(DynLocUp), inYV12.height*Abs(DynLocUp), taps=2)
     inRGB24     = clp.Crop(a,b,c,d).ConvertToRGB24(matrix=matrixID)
     inRGB32     = clp.Crop(a,b,c,d).ConvertToRGB32(matrix=matrixID)
 
@@ -1559,18 +1572,18 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     DynamicMsk4 = (automask == 0 && DynMask == 4 && mode == "inpaint" && DynMaskUp > -2) ? eval("""
                   wMsk4       = inY8.mt_binarize(DynTune)
-                  bMsk4       = inY8.mt_binarize(DynMask4H).mt_inpand(mode="square").mt_expand(mode="both")  # inp/exp to destroy corner connections between background and text
+                  bMsk4       = inY8.mt_binarize(DynMask4H)#.mt_inpand(mode="square").mt_expand(mode="both")  # inp/exp to destroy corner connections between background and text # v2.05 replaced with corners=false.
                   bBoxMsk4    = BlankClip(inY8, width=inY8.width-16, height=inY8.height-16, Color_yuv=$000000).AddBorders(8,8,8,8,$FFFFFF)
-                  bMsk4Cln1   = bBoxMsk4.mt_hysteresis(bMsk4)
+                  bMsk4Cln1   = bBoxMsk4.mt_hysteresis(bMsk4, corners=false)
                   DynamicMsk4 = (Show == 6) ? bMsk4 : wMsk4.mt_makediff(bMsk4Cln1).mt_binarize()
                   return DynamicMsk4 """) : nop
 
 
     DynamicMsk4u = (automask == 0 && DynMask == 4 && mode == "inpaint" && DynMaskUp > 1) ? eval("""
                   DynamicMsk4u = inY8.SincResize(inY8.width*DynMaskUp, inY8.height*DynMaskUp, taps=2).mt_binarize(DynTune)
-                  DynamicMsk4u = DynamicMsk4u.mt_expand(mode="both").mt_expand(mode="both").mt_inpand(mode="both").mt_inpand(mode="both")
+                  # v2.05. No idea why it's here, maybe to reduce sponginess, or maybe for killblobs/killnoise or to connect parts of the letters for better ORC [then move it to the extractor]
+                  #DynamicMsk4u = DynamicMsk4u.mt_expand(mode="both").mt_expand(mode="both").mt_inpand(mode="both").mt_inpand(mode="both")
                   return DynamicMsk4u """) : nop
-
 
     DynamicMsk4uf = (automask == 0 && DynMask == 4 && mode == "inpaint" && DynMaskUp < -1) ? eval("""
                   inSyncMsk4uf1  = inY8. SincResize(inY8.width*Abs(DynMaskUp), inY8.height*Abs(DynMaskUp), taps=2)
@@ -1617,7 +1630,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   DynamicMask = (DynInflate != 0) ? DynamicMask.MTballoonPX(dyninflate) : DynamicMask
                   DynamicMask = (MskPatch   == 1) ? DynamicMask.PatchFuncFX(maskPatch)  : DynamicMask
 
-                  DynamicMask = (DynMaskUp   > 1 && DynMask == 4) ? DynamicMask.PointResize(inY8.width*Abs(DynMaskUp), inY8.height*Abs(DynMaskUp)).mt_hysteresis(DynamicMsk4u) : DynamicMask
+                  DynamicMask = (DynMaskUp   > 1 && DynMask == 4) ? DynamicMask.PointResize(inY8.width*Abs(DynMaskUp), inY8.height*Abs(DynMaskUp)).mt_hysteresis(DynamicMsk4u, corners=false) : DynamicMask
                   return DynamicMask """) : nop
 
 
@@ -2690,3 +2703,4 @@ function TimerFX(int "startTime") {
     out = (startTime == 0) ? timeMs : timeStr
     return out
 }
+
