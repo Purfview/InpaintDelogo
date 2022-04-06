@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.06                                                                                  #
+#   Version: 2.07                                                                                  #
 ##================================================================================================##
 
 
@@ -30,9 +30,10 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.07 : 2022/04/06.  Changed defaults of the sub-parameters for "DynMask=3" (no need to set the bunch of parameters anymore).
 # Version 2.06 : 2022/04/06.  Fixed: "Show=3" was broken since v1.36.
 # Version 2.05 : 2022/04/04.  Masktools2 v2.2.30 or later is required.
-#                             Tweaked: "DynMask=4" and positive "DynMaskUp", should be a bit faster and no more glitches.
+#                             Tweaked: "DynMask=4" and positive "DynMaskUp", should be a bit faster and no more glitches on SD sources.
 #                             New: "DynLocUp" [Experimental WIP parameter for tests].
 # Version 2.04 : 2022/02/11.  Improved deblend quality with positive "Analyze" when frames quantity to analyze is low.
 #                             Tweaked: A/C masks filename from negative "Analyze" ('Deep' goes to the end of the filename).
@@ -476,8 +477,9 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     Sets how many frames will be blended to help to eliminate non-logo areas.
 #                     More frames blended - more chance for non-logo areas to disappear from the mask.
 #                     Disabling it disables "DynPostTune" automatically. Must be less than "Dyn3Seq"-1.
-#                     For subtiles "Dyn3Seq"-2 should be best.
-#                     0 - Disabled (default), for fine tuning.
+#                     Adaptive default: ["Dyn3Seq"-2] if Dyn3Seq is < 54, else: 52.
+#                     0 = Disabled (for fine tuning with "Show=3").
+#                     Note: No need to touch for subtitles.
 
 
 # Int "DynPostTune" :  Parameter for "DynMask=3".
@@ -487,6 +489,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     and possibly some non-logo areas can appear in a mask, but logo mask will get in a lilbit better shape.
 #                     If "ClpBlend" is disabled then this will be disabled automatically too.
 #                     0 - Disabled, for fine tuning.
+#                     Note: No need to touch for subtitles.
 
 
 # Int "Dyn3buffer"  :  Parameter for "DynMask=3".
@@ -495,8 +498,9 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     Enable it for encoding or AvS will work very slow, and it must go together
 #                     with RequestLinear(rlim=ClpBlend+1,clim=ClpBlend+1) placed after the source filter.
 #
-#                     0 - Buffer disabled.
-#                     1 - Buffer enabled (default).
+#                     0 - Buffer disabled (default).
+#                     1 - Buffer enabled.
+#                     Note: No need to touch for subtitles.
 
 
 # Int "RePass"      :  Parameter for "DynMask=3".
@@ -892,7 +896,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Turbo=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
 \ DynMask=0, DynTune=200, DynInflate=0, maskPatch="",
 \ KillBlobs=0, preBlobs=0, KillNoise=0, rePass=0,
-\ Dyn3Seq=12, ClpBlend=0, DynPostTune=0, Dyn3buffer=1,
+\ Dyn3Seq=12, ClpBlend=10, DynPostTune=1, Dyn3buffer=0,
 \ DynMask3H=0, ModeSH=1, TuneH1=0, TuneH2=0, TuneH3=0, KillNoiseH=0, rePassH=0,
 \ DynMask4H=60, DynMaskUp=0, DynLocUp=0,
 \ Extract=0,
@@ -1002,10 +1006,11 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     edgewide    = default (edgewide    , 1 )
     intspd      = default (intspd      , 1 )
     Dyn3Seq     = default (Dyn3Seq    , 12 )
-    ClpBlend    = default (ClpBlend    , 0 )
+    ClpBlend    = (Dyn3Seq  < 54) ? default (ClpBlend, Dyn3Seq-2 ) :
+    \                               default (ClpBlend, 52        )
     DynPostTune = (ClpBlend == 0) ? default (DynPostTune , 0 ) :
     \                               default (DynPostTune , 1 )
-    Dyn3buffer  = default (Dyn3buffer  , 1 )
+    Dyn3buffer  = default (Dyn3buffer  , 0 )
     AlphaTweak  = default (AlphaTweak  , 1 )
 
     Extract     = Default(Extract     ,    0)
