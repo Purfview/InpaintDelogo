@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.05                                                                                  #
+#   Version: 2.06                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.06 : 2022/04/06.  Fixed: "Show=3" was broken since v1.36.
 # Version 2.05 : 2022/04/04.  Masktools2 v2.2.30 or later is required.
 #                             Tweaked: "DynMask=4" and positive "DynMaskUp", should be a bit faster and no more glitches.
 #                             New: "DynLocUp" [Experimental WIP parameter for tests].
@@ -1666,7 +1667,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
     # EdgePP:
-    delogopp2   = (automask == 0 && Show != 4 && Show < 6) ? eval("""
+    delogopp2   = (automask == 0 && Show != 3 && Show != 4 && Show < 6) ? eval("""
                   delogopp2 =  (edgePP == 1 ) ? delogo.InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=2 ) :
                   \            (edgePP == 2 ) ? delogo.InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=6 ) :
                   \            (edgePP == 3 ) ? delogo.InpaintLogo(EdgeMask, sharpness=45  ,preBlur=6.5,postBlur=4,radius=8 ) :
@@ -1674,7 +1675,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   return delogopp2  """) : nop
 
     # dPP/oPP:
-    delogopp3   = (automask == 0 && Show < 4) ? eval("""
+    delogopp3   = (automask == 0 && Show < 3) ? eval("""
                   delogopp3 = (mode == "inpaint"            ) ? inYV12.Overlay(delogo   .ppFX(opp), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
                   \           (mode != "inpaint" && dPP != 0) ? inYV12.Overlay(delogopp2.ppFX(dpp), Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
                   \           (dPPm != 0         && dPP == 0) ? inYV12.Overlay(delogopp2,           Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
@@ -1682,19 +1683,19 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   return delogopp3  """) : nop
 
     # iTune PP:
-    delogopp4   = (automask == 0 && Show < 4) ? eval("""
+    delogopp4   = (automask == 0 && Show < 3) ? eval("""
                   delogopp4 = (mode == "deblend" && InterpM == -1 && diPP != 0) ? delogopp3.Overlay(delogopp3.ppFX(dipp), Mask=iTunepp.ConvertToY8(matrix="PC.709")) :
                   \                                                               delogopp3
                   return delogopp4 """) : nop
 
     # Both/oTune PP:
-    delogopp5   = (automask == 0 && Show < 4) ? eval("""
+    delogopp5   = (automask == 0 && Show < 3) ? eval("""
                   delogopp5 = (mode == "both" && oPP != 0) ? delogopp4.Overlay(delogopp4.ppFX(opp), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
                   \                                          delogopp4
                   return delogopp5 """) : nop
 
     # Grain PP:
-    delogopp9   = (automask == 0 && Show < 4) ? eval("""
+    delogopp9   = (automask == 0 && Show < 3) ? eval("""
                   delogopp9 = (grainpp == 1) ? delogopp5.Overlay(delogopp5.Grainfactory3(1,0,0,temp_avg=60), Mask=GrainMaskpp.ConvertToY8(matrix="PC.709")) :
                   \           (grainpp == 2) ? delogopp5.Overlay(delogopp5.Grainfactory3(2,1,1,temp_avg=60), Mask=GrainMaskpp.ConvertToY8(matrix="PC.709")) :
                   \           (grainpp == 3) ? delogopp5.Overlay(delogopp5.Grainfactory3(2,2,2,temp_avg=60), Mask=GrainMaskpp.ConvertToY8(matrix="PC.709")) :
