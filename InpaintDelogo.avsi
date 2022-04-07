@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.07                                                                                  #
+#   Version: 2.08                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.08 : 2022/04/07.  Improved negative "KillBlobs".
 # Version 2.07 : 2022/04/06.  Changed defaults of the sub-parameters for "DynMask=3" (no need to set the bunch of parameters anymore).
 # Version 2.06 : 2022/04/06.  Fixed: "Show=3" was broken since v1.36.
 # Version 2.05 : 2022/04/04.  Masktools2 v2.2.30 or later is required.
@@ -469,7 +470,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
                  #================#
 
 # Int "Dyn3Seq"     :  Parameter for "DynMask=3".
-#                     Sets how many frames the logo is in a location (from 10 to 9999, default: 12).
+#                     Sets how many frames the logo is in a location (from 8 to 9999, default: 12).
 #                     For subtitles set duration of the shortest subtitle or shorter subs will disappear from the mask.
 
 
@@ -1099,8 +1100,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugcombo13  = ((Show == 7 || Show == 8 || Show == 9) && (Analyze == -3 || Analyze == -4 || Analyze == 0 || Analyze == 3)) ? true : false
     bugcombo14  = (mShow          == 8 && edgePP  ==  0        ) ? true : false
     bugcombo15  = (dynmaskup       < 0 && dynlocup  >  0       ) ? true : false
-    bugDyn3Seq     = (Dyn3Seq     < 10 || Dyn3Seq  >       9999) ? true : false
-    bugClpBlend    = (ClpBlend     < 8 || ClpBlend >= Dyn3Seq-1) ? true : false
+    bugDyn3Seq     = (Dyn3Seq      < 8 || Dyn3Seq  >       9999) ? true : false
+    bugClpBlend    = (ClpBlend     < 6 || ClpBlend >= Dyn3Seq-1) ? true : false
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
     bugDyn3buffer  = (Dyn3buffer   < 0 || Dyn3buffer       >  1) ? true : false
     bugAlphaTweak  = (AlphaTweak < -3.0 || AlphaTweak     > 3.0) ? true : false
@@ -2364,13 +2365,13 @@ function KillBalloonFX(clip c, int "mode", int "pre", int "h2", int "h3") {
     px6 = px5.mt_expand(mode="square", chroma="none")
     px7 = px6.mt_expand(mode="square", chroma="none")
 
-    hx1 = mpx1.mt_hysteresis(clp)
-    hx2 = mpx2.mt_hysteresis(clp)
-    hx3 = mpx3.mt_hysteresis(clp)
-    hx4 = mpx4.mt_hysteresis(clp)
-    hx5 = mpx5.mt_hysteresis(clp)
-    hx6 = mpx6.mt_hysteresis(clp)
-    hx7 = mpx7.mt_hysteresis(clp)
+    hx1 = mpx1.mt_hysteresis(clp, corners=false)
+    hx2 = mpx2.mt_hysteresis(clp, corners=false)
+    hx3 = mpx3.mt_hysteresis(clp, corners=false)
+    hx4 = mpx4.mt_hysteresis(clp, corners=false)
+    hx5 = mpx5.mt_hysteresis(clp, corners=false)
+    hx6 = mpx6.mt_hysteresis(clp, corners=false)
+    hx7 = mpx7.mt_hysteresis(clp, corners=false)
 
     msk = (mode ==  0) ? clp :
     \     (mode == -1) ? hx1 :
