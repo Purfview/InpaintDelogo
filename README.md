@@ -31,7 +31,8 @@ RequestLinear ( https://github.com/pinterf/TIVTC ).
 ClipBlend     ( http://avisynth.nl/index.php/ClipBlend ).
 RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
 FrameSel      ( http://avisynth.nl/index.php/FrameSel ).
-GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 )
+GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).   
+vsTEdgeMask   ( https://github.com/Asd-g/AviSynth-vsTEdgeMask ).
  </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
