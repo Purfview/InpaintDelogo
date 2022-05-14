@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.11                                                                                  #
+#   Version: 2.12                                                                                  #
 ##================================================================================================##
 
 
@@ -30,7 +30,10 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
-# Version 2.11 : 2022/05/13.  Rewrite: "DynColor" ~30%-300% faster. New: "DynMask=6". Removed: "Show=10".
+# Version 2.12 : 2022/05/14.  Added generation of the dynamic mask by gradient magnitude map (aka "DynMask=7"/"DynTEdge").
+#                             New: "DynTEdge", "DynTEdgeThY", "DynTEdgeInf", "DynTuneInf", Show=10, Show=11.
+#                             vsTEdgeMask plugin is required.
+# Version 2.11 : 2022/05/13.  Rewrite: "DynColor" ~30%-300% faster. New: "DynMask=6/"DynTune". Removed: "Show=10".
 # Version 2.10 : 2022/05/02.  Added auto generation of the dynamic mask by color (aka "DynMask=5"/"DynColor").
 #                             New: "DynColor", "DynColorTol", "DynColorInf", "Show=10".
 #                             This dynamic mask by color can pre-patch video for other "DynMask" methods.
@@ -127,6 +130,7 @@
 #  RT_Stats      ( http://avisynth.nl/index.php/RT_Stats ).
 #  FrameSel      ( http://avisynth.nl/index.php/FrameSel ).
 #  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
+#  vsTEdgeMask   ( https://github.com/Asd-g/AviSynth-vsTEdgeMask ).
 
 
 ##================================================================================================##
@@ -394,7 +398,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                    1 - External dynamic mask, defined by "mask". Auto-adaptive.
 #
 #                    2 - Generation of the dynamic combo mask.
-#                        logic 'and' of DynMask5 and DynMask6 masks.
+#                        Mix of essential DynMask6/"DynTune" mask + optional DynMask5/"DynColor and DynMask7/"DynTEdge" masks (logic 'and').
 #
 #                    3 - Generation of the dynamic temporaly averaged combo mask [DynMask2 + temporal average].
 #                        Useful when Logo jumps location and stays there for some time (set by "Dyn3Seq").
@@ -403,19 +407,22 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                        Source filter must be frame accurate [like LWLibAvVideoSource]!
 #
 #                        For fine tuning use "Show=3" mode as in it only steps mentioned below are processed:
-#                        Internal succession: Clip > "Loc" > "DynColor" + "DynTune" > "ClpBlend" > "DynPostTune" >...
+#                        Internal succession: Clip > "Loc" > "DynTune"+"DynColor"+"DynTEdge" > "ClpBlend" > "DynPostTune" >...
 #                        Start looking at the ~last frame with logo in a location before adjusting things in "Show=3",
 #                        because at other places a logo mask should/may disappear (down the chain those are merged in).
 #                        Read about "Dyn3buffer" and parameters mentioned above!
 #
 #                    4 - Generation of the dynamic mask for subtitles with halo.
 #
-#                    5 - Generation of the dynamic mask by color ("DynColor").
+#                    5 - Generation of the dynamic mask by color (only "DynColor").
 #
-#                    6 - Generation of the dynamic mask by brightness ("DynTune").
+#                    6 - Generation of the dynamic mask by brightness (only "DynTune").
+#
+#                    7 - Generation of the dynamic mask by gradient magnitude map (only "DynTEdge").
 
 
-# Int "DynInflate"  :  Inflates the dynamic mask. Last in the chain (before "maskPatch" and "oPP").
+# Int "DynInflate"  :  Inflates the dynamic mask. Last in the filters chain (before "maskPatch" and "oPP").
+#                      If few masks are mixed into combo then better use separate inflation parameters [like "DynTuneInf", etc.].
 #
 #                    -1 - Similar as 1 but lil weaker ('both' instead of 'square').
 #                     0 - Disabled  (default).
@@ -423,12 +430,6 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     2 - Inflate by 2 pixels.
 #                     3 - Inflate by 3 pixels.
 #                     4 - Inflate by 4 pixels.
-
-
-# Int "DynTune"     :  Tunes up a dynamic mask for "DynMask=2/3/4". Binarization threshold. (from 1 to 254; default: 200).
-#                     Lower values -> mask expands more into the darker areas of video.
-#                     Set highest where logo/subtitle is still visible.
-#                     Use "DynMask=2" to see its pure effect.
 
 
 #   DynMask=5.
@@ -445,7 +446,38 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 # Int "DynColorTol"  :  Parameter for "DynColor". Color tolerance. (from 1 to 80; default: 10).
 
 
-# Int "DynColorInf"  :  Inflates "DynColor" mask. (from 1 to 4; default: 1).
+# Int "DynColorInf"  :  Inflates "DynColor" mask. (from 0 to 4; default: 1).
+#=============================================================================================================
+
+
+#   DynMask=6.
+#=============================================================================================================
+# NOTES:             :  When "DynMask=6": "DynInflate" is auto hardset to 0.
+
+
+# Int "DynTune"      :  A dynamic mask for "DynMask=2/3/4/6". Binarization threshold [brighness level]. (from 1 to 254; default: 200).
+#                      Lower values -> mask expands more into the darker areas of video.
+#                      Set highest where logo/subtitle is still visible.
+
+# Int "DynTuneInf"  :  Inflates "DynTune" mask. (from -1 to 4; default: 0).
+#=============================================================================================================
+
+
+#   DynMask=7.
+#=============================================================================================================
+# NOTES:             :  When "DynMask=7": "DynInflate" is auto hardset to 0.
+
+
+# Int "DynTEdge"     :  Auto generation of the dynamic mask by gradient magnitude map. (from 0 to 1; default: 0).
+#                      0 - Disabled  (default).
+
+
+# Int "DynTEdgeThY"  :  Parameter for "DynTEdge". Magnitude threshold. (from 10 to 100; default: 20).
+#                       Adjust it where background brightness is similar to logo/subtitle text brightness.
+#                       Aim is to get good edges then inflate till logo/subtitle is covered. Lower - more wrong edges.
+
+
+# Int "DynTEdgeInf"  :  Inflates "DynTEdge" mask. (from 0 to 8; default: 2).
 #=============================================================================================================
 
 
@@ -601,7 +633,6 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
                  #================#
 
 # NOTES:            :  For subtitles with a dark halo.
-#                     You can use "DynMask=2" to finetune "DynTune" if you want to see its pure effect (without "DynMask4H" effect).
 
 # Int "DynMask4H"   :  Parameter for "DynMask=4".
 #                     Binarization threshold for the subtitles halo (from 1 to 200; default: 60).
@@ -716,6 +747,10 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     7 - Shows the constructed clip used to select frames for Analyze (whole clip with MinMax stats).
 #                     8 - Same as 7, except that it shows the selected frames by AnalyzeTh.
 #                     9 - Shows original selected frames with the real frame number from source clip. No resizing.
+#
+#                     # For DynMask=2/5/6/7:
+#                    10 - Stacked: Original | Overlayed black | Mask
+#                    11 - Overlayed black
 
 
 # Int "mShow"       :  Shows you selected mask. Overlays "black hole" over clip.
@@ -925,8 +960,9 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ diPP=5, diPPm=3,
 \ EdgePP=0, EdgePos=0, EdgeWide=1,
 \ Turbo=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
-\ DynMask=0, DynTune=200, DynInflate=0, maskPatch="",
+\ DynMask=0, DynTune=200, DynTuneInf=0, DynInflate=0, maskPatch="",
 \ DynColor=0, DynColorTol=10, DynColorInf=1,
+\ DynTEdge=0, DynTEdgeThY=20, DynTEdgeInf=2,
 \ KillBlobs=0, preBlobs=0, KillNoise=0, rePass=0,
 \ Dyn3Seq=12, ClpBlend=10, DynPostTune=1, Dyn3buffer=0,
 \ DynMask3H=0, ModeSH=1, TuneH1=0, TuneH2=0, TuneH3=0, KillNoiseH=0, rePassH=0,
@@ -960,7 +996,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
 \                        int "DynMask4H", int "DynMaskUp", int "DynLocUp",
 \                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize",
-\                        int "AnalyzeTh", String "NoBorderAt", float "AlphaTweak", int "DynColor", int "DynColorTol", int "DynColorInf")
+\                        int "AnalyzeTh", String "NoBorderAt", float "AlphaTweak",
+\                        int "DynColor", int "DynColorTol", int "DynColorInf",
+\                        int "DynTEdge", int "DynTEdgeThY", int "DynTEdgeInf", int "DynTuneInf")
 
 {
 
@@ -1047,6 +1085,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     DynColor    = default (DynColor    , 0 )
     DynColorTol = default (DynColorTol ,10 )
     DynColorInf = default (DynColorInf , 1 )
+    DynTEdge    = default (DynTEdge    , 0 )
+    DynTEdgeThY = default (DynTEdgeThY ,20 )
+    DynTEdgeInf = default (DynTEdgeInf , 2 )
+    DynTuneInf  = default (DynTuneInf  , 0 )
 
     Extract     = Default(Extract     ,    0)
     CorrTh      = Default(CorrTh      ,  0.8)
@@ -1084,7 +1126,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugdppm     = (dppm         < 1 || dppm         >  3) ? true : false
     bugdippm    = (dippm        < 0 || dippm        >  3) ? true : false
     bugoppm     = (oppm         < 0 || oppm         >  3) ? true : false
-    bugdynmask  = (dynmask      < 0 || dynmask      >  6) ? true : false
+    bugdynmask  = (dynmask      < 0 || dynmask      >  7) ? true : false
     bugdyntune  = (dyntune      < 1 || dyntune     > 254) ? true : false
     bugdynflate = (dyninflate  < -1 || dyninflate   >  4) ? true : false
     buggrainpp  = (grainpp      < 0 || grainpp      >  3) ? true : false
@@ -1094,7 +1136,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugotune    = (otune      < -10 || otune        >  5) ? true : false
     bugitune    = (itune      < -10 || itune       >  10) ? true : false
     bugamix     = (amix       < -50 || amix         >  5) ? true : false
-    bugshow     = (show         < 0 || show         >  9) ? true : false
+    bugshow     = (show         < 0 || show         > 11) ? true : false
     bugmshow    = (mshow        < 0 || mshow        >  9) ? true : false
     bugrsize    = (rsize        < 1 || rsize        >  9) ? true : false
     bugautomask = (automask     < 0 || automask     >  1) ? true : false
@@ -1142,6 +1184,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugDynColor    = (DynColor     < 0 || DynColor   > 16777215) ? true : false
     bugDynColorTol = (DynColorTol  < 1 || DynColorTol      > 80) ? true : false
     bugDynColorInf = (DynColorInf  < 0 || DynColorInf       > 4) ? true : false
+    bugDynTEdge    = (DynTEdge     < 0 || DynTEdge          > 1) ? true : false
+    bugDynTEdgeThY = (DynTEdgeThY  <10 || DynTEdgeThY     > 100) ? true : false
+    bugDynTEdgeInf = (DynTEdgeInf  < 0 || DynTEdgeInf       > 8) ? true : false
+    bugDynTuneInf  = (DynTuneInf  < -1 || DynTuneInf        > 4) ? true : false
 
 
     assert        ( findstr(loc," ")  == 0      , """Space character is not allowed in string "Loc".""")
@@ -1178,7 +1224,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugdppm           == false  , """"dPPm" value must be between 1 and 3.""")
     assert        ( bugdippm          == false  , """"diPPm" value must be between 0 and 3.""")
     assert        ( bugoppm           == false  , """"oPPm" value must be between 0 and 3.""")
-    assert        ( bugdynmask        == false  , """"DynMask" value must be between 0 and 6.""")
+    assert        ( bugdynmask        == false  , """"DynMask" value must be between 0 and 7.""")
     assert        ( bugdyntune        == false  , """"DynTune" value must be between 1 and 254.""")
     assert        ( bugdynflate       == false  , """"DynInflate" value must be between -1 and 4.""")
     assert        ( buggrainpp        == false  , """"GrainPP" value must be between 0 and 3.""")
@@ -1188,7 +1234,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugotune          == false  , """"oTune" value must be between -10 and 5.""")
     assert        ( bugitune          == false  , """"iTune" value must be between -10 and 10.""")
     assert        ( bugamix           == false  , """"aMix" value must be between -50 and 5.""")
-    assert        ( bugshow           == false  , """"Show" value must be between 0 and 9.""")
+    assert        ( bugshow           == false  , """"Show" value must be between 0 and 11.""")
     assert        ( bugmshow          == false  , """"mShow" value must be between 0 and 8.""")
     assert        ( bugrsize          == false  , """"rSize" value must be between 1 and 9.""")
     assert        ( bugautomask       == false  , """"Automask" value must be between 0 and 1.""")
@@ -1221,6 +1267,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugDynColor       == false  , """"DynColor" value must be between $000000 and $FFFFFF.""")
     assert        ( bugDynColorTol    == false  , """"DynColorTol" value must be between 1 and 80.""")
     assert        ( bugDynColorInf    == false  , """"DynColorInf" value must be between 0 and 4.""")
+    assert        ( bugDynTEdge       == false  , """"DynTEdge" value must be between 0 and 1.""")
+    assert        ( bugDynTEdgeThY    == false  , """"DynTEdgeThY" value must be between 10 and 100.""")
+    assert        ( bugDynTEdgeInf    == false  , """"DynTEdgeInf" value must be between 0 and 8.""")
+    assert        ( bugDynTuneInf     == false  , """"DynTuneInf" value must be between -1 and 4.""")
 
 
     # Settings #
@@ -1284,6 +1334,17 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     cm_bugcombo1  = (DynColor        > 0 && DynMask        < 2) ? true : false
     assert        ( cm_bugcombo0   == false   , """Nothing to do for "DynMask=5" if "DynColor=0".""")
     assert        ( cm_bugcombo1   == false   , """"DynColor" can be used only with internal "DynMask" methods.""")
+
+    # DynMask=6 / DynTune:
+    DynInflate    = (DynMask ==  6                    ) ? 0 : DynInflate
+
+    # DynMask=7 / DynTEdge:
+    DynInflate    = (DynMask ==  7                    ) ? 0 : DynInflate
+
+    te_bugcombo0  = (DynTEdge       == 0 && DynMask       == 7) ? true : false
+    te_bugcombo1  = (DynTEdge        > 0 && DynMask        < 2) ? true : false
+    assert        ( te_bugcombo0   == false   , """Nothing to do for "DynMask=7" if "DynTEdge=0".""")
+    assert        ( te_bugcombo1   == false   , """"DynTEdge" can be used only with internal "DynMask" methods.""")
 
     # "Turbo" presets:
     opp         = (turbo == 1 && mode == "inpaint" ) ? 7 :
@@ -1618,20 +1679,32 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
         \                              LogoDeblPre
     }
 
-    # DynTune
-    lvl_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5) ? eval("""
-                  lvl_mask = inY8.mt_binarize(threshold=DynTune)
+    # DynTune  / DynMask6
+    lvl_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 7) ? eval("""
+                  lvl_mask = inY8.mt_binarize(threshold=DynTune).MTballoonPX(DynTuneInf)
                   return lvl_mask """) : nop
 
-    # DynColor
-    col_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynColor > 0 && DynMask != 6) ? eval("""
-                  col_mask = inYV12a.ConvertToRGB32(matrix=matrixID).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoonPX(DynColorInf)
+    # DynColor / DynMask5
+    col_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynColor > 0 && DynMask != 6 && DynMask != 7) ? eval("""
+                  col_mask = inYV12a.ConvertToRGB32(matrix=matrixID).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoon2PX(DynColorInf)
                   return col_mask """) : nop
 
+    # DynTEdge / DynMask7
+    # "vsTEdgeMask (threshY=20.0, type=1, link=0)" result is almost same as "vsTCanny(sigmaY=0, mode=1, op=0).mt_binarize(40)" but ~twice faster
+    tedge_mask  = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynTEdge == 1 && DynMask != 5 && DynMask != 6) ? eval("""
+                  tedge_mask = (DynTEdgeInf == 0) ? inY8.vsTEdgeMask (threshY=DynTEdgeThY, type=1, link=0) :
+                  \                                 inY8.vsTEdgeMask (threshY=DynTEdgeThY, type=1, link=0).MTballoon2PX(DynTEdgeInf).mt_expand.mt_inpand
+                  return tedge_mask """) : nop
+
     # Combo mask
-    if (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 6) {
-        if (DynColor > 0) {
-            combo_mask = lvl_mask.mt_logic(col_mask, mode="and")
+    if (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 6 && DynMask != 7) {
+        if (DynColor > 0 && DynTEdge == 1) {
+            combo_mask =   lvl_mask.mt_logic(  col_mask, mode="and")
+            combo_mask = combo_mask.mt_logic(tedge_mask, mode="and")
+        } else if (DynColor == 0 && DynTEdge == 1) {
+            combo_mask =   lvl_mask.mt_logic(tedge_mask, mode="and")
+        } else if (DynColor  > 0 && DynTEdge == 0) {
+            combo_mask =   lvl_mask.mt_logic(  col_mask, mode="and")
         } else {
             combo_mask = lvl_mask
         }
@@ -1706,7 +1779,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   \             (mode == "inpaint" && DynMask == 4 && DynMaskUp > -2) ? DynamicMsk4 :
                   \             (mode == "inpaint" && DynMask == 4 && DynMaskUp < -1) ? DynamicMsk4uf :
                   \             (mode == "inpaint" && DynMask == 5                  ) ? col_mask :
-                  \             (mode == "inpaint" && DynMask == 6                  ) ? lvl_mask : nop
+                  \             (mode == "inpaint" && DynMask == 6                  ) ? lvl_mask :
+                  \             (mode == "inpaint" && DynMask == 7                  ) ? tedge_mask : nop
                   DynamicMask = (KillBlobs  != 0) ? DynamicMask.KillBalloonFX(KillBlobs, preBlobs) : DynamicMask
                   DynamicMask = (KillNoise  != 0) ? DynamicMask.MTballoonPX(KillNoise) : DynamicMask
                   DynamicMask = (RePass     == 1 && DynMask == 3) ? DynamicMask.DynRePassFX(Dyn3Seq, ClpBlend, KillNoise) : DynamicMask
@@ -1721,10 +1795,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   return DynamicMask """) : nop
 
 
-    InpaintMpp  = (automask == 0 && DynMask != 0 && Show != 4 && Show != 6) ? eval("""
+    InpaintMpp  = (automask == 0 && DynMask != 0 && Show != 4 && Show < 6) ? eval("""
                   InpaintMpp  = DynamicMask.MTballoonGR(oppm)
                   return InpaintMpp
-                  """) : (automask == 0) ? Eval("""
+                  """) : (automask == 0 && Show < 3) ? Eval("""
                   return InpaintMpp
                   """) : nop
 
@@ -1958,6 +2032,23 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
       \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=1) :
       \ (Analyze == -1) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=1) :
       \ (Analyze == -2) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=1) : nop
+
+    } else if(show == 10) { # "Show" 10
+
+        black10 = BlankClip(inYV12a, Color_yuv=$000000, pixel_type="Y8")
+        (DynMask ==  2) ? Stackvertical(inYV12a, inYV12a.Overlay(black10, Mask=combo_mask.invert).AddBorders(0,2,0,0,$F0F080), combo_mask.ConvertToYV12.AddBorders(0,2,0,0,$F0F080)) :
+      \ (DynMask ==  5) ? Stackvertical(inYV12a, inYV12a.Overlay(black10, Mask=  col_mask.invert).AddBorders(0,2,0,0,$F0F080),   col_mask.ConvertToYV12.AddBorders(0,2,0,0,$F0F080)) :
+      \ (DynMask ==  6) ? Stackvertical(inYV12a, inYV12a.Overlay(black10, Mask=  lvl_mask.invert).AddBorders(0,2,0,0,$F0F080),   lvl_mask.ConvertToYV12.AddBorders(0,2,0,0,$F0F080)) :
+      \ (DynMask ==  7) ? Stackvertical(inYV12a, inYV12a.Overlay(black10, Mask=tedge_mask.invert).AddBorders(0,2,0,0,$F0F080), tedge_mask.ConvertToYV12.AddBorders(0,2,0,0,$F0F080)) : nop
+
+
+    } else if(show == 11) { # "Show" 11
+
+         black11 = BlankClip(inYV12a, Color_yuv=$000000, pixel_type="Y8")
+        (DynMask ==  2) ? inYV12a.Overlay(black11, Mask=combo_mask.invert) :
+      \ (DynMask ==  5) ? inYV12a.Overlay(black11, Mask=  col_mask.invert) :
+      \ (DynMask ==  6) ? inYV12a.Overlay(black11, Mask=  lvl_mask.invert) :
+      \ (DynMask ==  7) ? inYV12a.Overlay(black11, Mask=tedge_mask.invert) : nop
 
     } else { # FinalOut
 
@@ -2319,6 +2410,7 @@ function MTballoon2PX(clip clp, int "mode") {
     px5 = px4.mt_expand(mode="square", chroma="none")
     px6 = px5.mt_expand(mode="square", chroma="none")
     px7 = px6.mt_expand(mode="square", chroma="none")
+    px8 = px7.mt_expand(mode="square", chroma="none")
 
     px1m =  clp.mt_inpand(mode="square", chroma="none")
     px2m = px1m.mt_inpand(mode="square", chroma="none")
@@ -2327,6 +2419,7 @@ function MTballoon2PX(clip clp, int "mode") {
     px5m = px4m.mt_inpand(mode="square", chroma="none")
     px6m = px5m.mt_inpand(mode="square", chroma="none")
     px7m = px6m.mt_inpand(mode="square", chroma="none")
+    px8m = px7m.mt_inpand(mode="square", chroma="none")
 
     balloon = (mode ==  0) ? clp  :
     \         (mode ==  1) ? px1  :
@@ -2336,13 +2429,15 @@ function MTballoon2PX(clip clp, int "mode") {
     \         (mode ==  5) ? px5  :
     \         (mode ==  6) ? px6  :
     \         (mode ==  7) ? px7  :
+    \         (mode ==  8) ? px8  :
     \         (mode == -1) ? px1m :
     \         (mode == -2) ? px2m :
     \         (mode == -3) ? px3m :
     \         (mode == -4) ? px4m :
     \         (mode == -5) ? px5m :
     \         (mode == -6) ? px6m :
-    \         (mode == -7) ? px7m : nop
+    \         (mode == -7) ? px7m :
+    \         (mode == -8) ? px8m : nop
     return balloon
 }
 
