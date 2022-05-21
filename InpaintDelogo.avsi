@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.12                                                                                  #
+#   Version: 2.13                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,9 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.13 : 2022/05/21.  SubsMask2Img: Added average luma check to catch non-sub images.
+#                             New: "SubMinLuma", "SubSusLuma".
+#                             Renamed: "SubSuspect" to "SubSusDur".
 # Version 2.12 : 2022/05/14.  Added generation of the dynamic mask by gradient magnitude map (aka "DynMask=7"/"DynTEdge").
 #                             New: "DynTEdge", "DynTEdgeThY", "DynTEdgeInf", "DynTuneInf", Show=10, Show=11.
 #                             vsTEdgeMask plugin is required.
@@ -848,16 +851,16 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 ##================================================================================================##
 
 
-# NOTE              : The subs detection looks only at the middle of video (10% width x 55% height)!
-#                     Clip expected to be full range Y8 or will be converted.
+# NOTES             : The subs detection looks only at the middle of video (10% width x 60% height)!
+#                     Clip is expected to be full range Y8 or it will be converted [but there is no conversion to full range].
 
 
 # Int "Extract"     :  This is only InpaintDelogo() parameter!!!
-#                     Makes stuff work in one go, but it's much slower that using an intermediate file.
+#                     Makes stuff work in one go, but it's much slower that using an intermediate mask file.
 #                     It will pass SubsMask2Img() parameters from InpaintDelogo() func to SubsMask2Img().
 #                     When enabled the script will work till extraction is done, so use only after a dynamic mask is all set.
 #
-#                     Fast way:  InpaintDelogo() ->  encode the mask to a lossless file -> SubsMask2Img().
+#                     Fast extraction:  InpaintDelogo() ->  encode the mask to a lossless file -> SubsMask2Img().
 #                     Good lossless x264 settings for a mask: "--preset ultrafast --range pc --cabac -q0".
 
 
@@ -876,13 +879,25 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 
 
 # Int "SubMinDur"   :  Minimum subtitle duration threshold in frames (from 1 to 30; default = 12).
-#                     Stuff from the below ranges won't be extracted.
+#                     Images with duration below this threshold won't be extracted.
 
 
-# Int "SubSuspect"  :  Suspicious subtitle duration threshold in frames (from 0 to 60; default: 0).
-#                     Extracted images from the below or equal ranges will have "_" prefix in the filenames.
-#                     For fast examination of the extracted images.
+# Int "SubSusDur"   :  Suspicious subtitle duration threshold in frames (from 0 to 60; default: 0).
+#                     Extracted images with duration below or equal to this threshold will have "_" prefix in the filenames.
+#                     Parameter is for fast examination/detection of possible non-sub images or wrong splits.
 #                     Recommended setting: 3 frames lower than FPS of video.
+
+
+# float "SubMinLuma":  Minimum average luma threshold for subtitle images (from 0 to 0.5; default = 0.5).
+#                     Images with average luma below this threshold won't be extracted.
+#                     Note: No need to touch it, unless you want to set it to 0.
+#                     Note: Only the middle of frame is sampled.
+
+
+# Float "SubSusLuma":  Suspicious average luma threshold for subtitle images (from 0 to 5; default: 0).
+#                     Extracted images with average luma below this threshold will have "_" prefix in the filenames.
+#                     Parameter is for fast examination/detection of possible non-sub images.
+#                     Recommended setting: 3.
 
 
 # Int "ImgType"     :  Image type to write ("png" or "tif"; default: "png").
@@ -973,7 +988,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Show=0, mShow=0, rSize=4)
 
 
-SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=235, SubMinDur=12, SubSuspect=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1 )
+SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=235, SubMinDur=12, SubSusDur=0,  SubMinLuma=0.5, SubSusLuma=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1 )
 
 */
 
@@ -995,7 +1010,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "KillBlobs", int "preBlobs", int "rePass",
 \                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
 \                        int "DynMask4H", int "DynMaskUp", int "DynLocUp",
-\                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize",
+\                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize",
 \                        int "AnalyzeTh", String "NoBorderAt", float "AlphaTweak",
 \                        int "DynColor", int "DynColorTol", int "DynColorInf",
 \                        int "DynTEdge", int "DynTEdgeThY", int "DynTEdgeInf", int "DynTuneInf")
@@ -1094,7 +1109,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     CorrTh      = Default(CorrTh      ,  0.8)
     SubTune     = Default(SubTune     ,  235)
     SubMinDur   = Default(SubMinDur   ,   12)
-    SubSuspect  = Default(SubSuspect  ,    0)
+    SubSusDur   = Default(SubSusDur   ,    0)
+    SubMinLuma  = Default(SubMinLuma  ,  0.5)
+    SubSusLuma  = Default(SubSusLuma  ,    0)
     ImgType     = Default(ImgType     ,"png")
     ImgInflate  = Default(ImgInflate  ,    0)
     ImgInvert   = Default(ImgInvert   ,    0)
@@ -1476,8 +1493,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     Assert (!(LocW != Imgmask.width || LocH != Imgmask.height), """Clip and "mask" image must have same dimensions.""")
 
+
     # Auto-Generation of the base mask. #
     #===================================#
+
 
     if(Automask == 1) {
         MaskID = LeftStr(mask,int(StrLen(mask)-4))
@@ -1588,6 +1607,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     # Have you weared your mask today? #
     #==================================#
 
+
     if(automask == 0) {
         InterpMask  = Basemask.balloonPX(interpmInfl)
 
@@ -1690,7 +1710,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   return col_mask """) : nop
 
     # DynTEdge / DynMask7
-    # "vsTEdgeMask (threshY=20.0, type=1, link=0)" result is almost same as "vsTCanny(sigmaY=0, mode=1, op=0).mt_binarize(40)" but ~twice faster
+    # "vsTEdgeMask(threshY=20.0, type=1, link=0)" result is almost same as "vsTCanny(sigmaY=0, mode=1, op=0).mt_binarize(40)" but ~twice faster
     tedge_mask  = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynTEdge == 1 && DynMask != 5 && DynMask != 6) ? eval("""
                   tedge_mask = (DynTEdgeInf == 0) ? inY8.vsTEdgeMask (threshY=DynTEdgeThY, type=1, link=0) :
                   \                                 inY8.vsTEdgeMask (threshY=DynTEdgeThY, type=1, link=0).MTballoon2PX(DynTEdgeInf).mt_expand.mt_inpand
@@ -1943,7 +1963,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
         \                     StackVertical (a1,a2      )
 
         (rSize >= 4) ? Spline16Resize(last,sSize*width(last),sSize*height(last)):
-        \              last
+        \              last.ConvertToRGB24
 
     } else if(show == 2) { # "Show" 2
 
@@ -1961,7 +1981,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     } else if(show == 4) { # "Show" 4
 
-        (Extract == 0) ? DynamicMask : DynamicMask.SubsMask2Img(ImgDir=ImgDir, CorrTh=CorrTh, SubTune=SubTune, SubMinDur=SubMinDur, SubSuspect=SubSuspect, ImgType=ImgType, ImgInflate=ImgInflate, ImgInvert=ImgInvert, ImgSize=ImgSize)
+        (Extract == 0) ? DynamicMask : DynamicMask.SubsMask2Img(ImgDir=ImgDir, CorrTh=CorrTh, SubTune=SubTune, SubMinDur=SubMinDur, SubSusDur=SubSusDur, SubMinLuma=SubMinLuma, SubSusLuma=SubSusLuma, ImgType=ImgType, ImgInflate=ImgInflate, ImgInvert=ImgInvert, ImgSize=ImgSize)
 
     } else if(show == 5) { # "Show" 5
 
@@ -2692,12 +2712,17 @@ Function VFX1(clip c, string FrameDB, int CropW, int CropH) {
 }
 
 # Mod of StainlessS's 'DetSub_Extract.avs' - https://forum.doom9.org/showthread.php?p=1950193
-Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSuspect", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize") {
+Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma",
+\                     String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize")
+
+{
     StartTime   = TimerFX()
     CorrTh      = Default(CorrTh      ,  0.8)
     SubTune     = Default(SubTune     ,  235)
     SubMinDur   = Default(SubMinDur   ,   12)
-    SubSuspect  = Default(SubSuspect  ,    0)
+    SubSusDur   = Default(SubSusDur   ,    0)
+    SubMinLuma  = Default(SubMinLuma  ,  0.5)
+    SubSusLuma  = Default(SubSusLuma  ,    0)
     ImgType     = Default(ImgType     ,"png")
     ImgInflate  = Default(ImgInflate  ,    0)
     ImgInvert   = Default(ImgInvert   ,    0)
@@ -2707,7 +2732,9 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     Assert (!(CorrTh      <   0.5 || CorrTh      >  0.95), """"CorrTh" value must be between 0.5 and 0.95.""")
     Assert (!(SubTune     <   100 || SubTune     >   254), """"SubTune" value must be between 200 and 254.""")
     Assert (!(SubMinDur   <     1 || SubMinDur   >    30), """"SubMinDur" value must be between 1 and 20.""")
-    Assert (!(SubSuspect  <     0 || SubSuspect  >    60), """"SubSuspect" value must be between 0 and 40.""")
+    Assert (!(SubSusDur   <     0 || SubSusDur   >    60), """"SubSusDur" value must be between 0 and 40.""")
+    Assert (!(SubMinLuma  <     0 || SubMinLuma  >   0.5), """"SubMinLuma" value must be between 0 and 0.5.""")
+    Assert (!(SubSusLuma  <     0 || SubSusLuma  >     5), """"SubSusLuma" value must be between 0 and 5.""")
     Assert ( (ImgType    == "png" || ImgType    == "tif"), """"ImgType" string must be 'png' or 'tif'.""")
     Assert (!(ImgInflate   <    0 || ImgInflate  >     1), """"ImgInflate" value must be between 0 and 1.""")
     Assert (!(ImgInvert    <    0 || ImgInvert   >     1), """"ImgInvert" value must be between 0 and 1.""")
@@ -2726,7 +2753,7 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     VW      = clp.Width
     VH      = clp.Height
     CropW   = int((VW / 2) *0.90)
-    CropH   = int((VH / 2) *0.45)
+    CropH   = int((VH / 2) *0.40)
     inY8    = clp.ConvertToY8()
 
 
@@ -2789,44 +2816,70 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
 
     NSubs = RT_DBaseRecords(RangeDB) # Number of SEPARATE INDIVIDUAL Subtitles
     ESubs = NSubs
+    ESubs2= NSubs
     SSubs = 0
+    SSubs2= 0
     fps   = clp.FrameRate
 
     for(i=0,NSubs-1) {
         SubStart = RT_DBaseGetField(RangeDB,i,0)
         SubEnd   = RT_DBaseGetField(RangeDB,i,1)
         SubDur   = SubEnd - SubStart + 1
-        if(SubDur >= SubMinDur && SubDur > SubSuspect) {
+        if(SubDur >= SubMinDur && SubDur > SubSusDur) {
             FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
-            OneF1 = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).mt_binarize(SubTune)
-            OneF2 = (ImgType == "png") ? OneF1 : OneF1.ConvertToRGB24
-            OneF3 = (ImgSize ==     1) ? OneF2 : OneF2.PointResize(VW*ImgSize,VH*ImgSize)
-            OneF4 = (ImgInflate ==  0) ? OneF3 : OneF3.mt_expand(mode="square")
-            OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
-            OneF5.ImageWriter(ImgDir+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+            One0  = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1)
+            avgL  = One0.crop(CropW,CropH,-1*CropW,-1*CropH).mt_binarize(254).AverageLuma
+            if(avgL >= SubMinLuma && avgL >= SubSusLuma) {
+                OneF1 = One0.mt_binarize(SubTune)
+                OneF2 = (ImgType == "png") ? OneF1 : OneF1.ConvertToRGB24
+                OneF3 = (ImgSize ==     1) ? OneF2 : OneF2.PointResize(VW*ImgSize,VH*ImgSize)
+                OneF4 = (ImgInflate ==  0) ? OneF3 : OneF3.mt_expand(mode="square")
+                OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
+                OneF5.ImageWriter(ImgDir+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+            } else if(avgL >= SubMinLuma) {
+                  OneF1 = One0.mt_binarize(SubTune)
+                  OneF2 = (ImgType == "png") ? OneF1 : OneF1.ConvertToRGB24
+                  OneF3 = (ImgSize ==     1) ? OneF2 : OneF2.PointResize(VW*ImgSize,VH*ImgSize)
+                  OneF4 = (ImgInflate ==  0) ? OneF3 : OneF3.mt_expand(mode="square")
+                  OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
+                  OneF5.ImageWriter(ImgDir+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+                  SSubs2 = SSubs2+1
+            } else {
+                  ESubs2 = ESubs2-1
+            }
         } else if(SubDur >= SubMinDur) {
-            FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
-            OneF1 = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).mt_binarize(SubTune)
-            OneF2 = (ImgType == "png") ? OneF1 : OneF1.ConvertToRGB24
-            OneF3 = (ImgSize ==     1) ? OneF2 : OneF2.PointResize(VW*ImgSize,VH*ImgSize)
-            OneF4 = (ImgInflate ==  0) ? OneF3 : OneF3.mt_expand(mode="square")
-            OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
-            OneF5.ImageWriter(ImgDir+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
-            SSubs = SSubs+1
+              FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
+              One0  = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1)
+              avgL  = One0.crop(CropW,CropH,-1*CropW,-1*CropH).mt_binarize(254).AverageLuma
+              if(avgL >= SubMinLuma) {
+                  OneF1 = One0.mt_binarize(SubTune)
+                  OneF2 = (ImgType == "png") ? OneF1 : OneF1.ConvertToRGB24
+                  OneF3 = (ImgSize ==     1) ? OneF2 : OneF2.PointResize(VW*ImgSize,VH*ImgSize)
+                  OneF4 = (ImgInflate ==  0) ? OneF3 : OneF3.mt_expand(mode="square")
+                  OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
+                  OneF5.ImageWriter(ImgDir+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+                  SSubs = SSubs+1
+              } else {
+                  ESubs2 = ESubs2-1
+              }
         } else {
             ESubs = ESubs-1
         }
     }
 
     TSubs = NSubs - ESubs
+    TSubs2= NSubs - ESubs2
+    ESsum = ESubs + ESubs2 - NSubs
     RT_FileDelete(FrameDB)
     RT_FileDelete(RangeDB)
     RunTime = TimerFX(StartTime)
 
-    out = Messageclip(RT_String("""Possible subtitles detected: %d"""+
-                              \ """\nSuspicious ('SubSuspect'=%d): %d"""+
-                              \ """\nTrash ('SubMinDur'=%d): %d"""+
-                              \ """\nSubtitle images extracted: %d"""+
+    out = Messageclip(RT_String("""            Possible subtitles detected        : %04d             """+
+                              \ """\n            Suspicious ('SubSusDur'=%02d)    : %04d             """+
+                              \ """\n            Suspicious ('SubSusLuma'=%02g) : %04d             """+
+                              \ """\n            Trash ('SubMinDur'=%02d)              : %04d             """+
+                              \ """\n            Trash ('SubMinLuma'=%02g)          : %04d             """+
+                              \ """\n            Subtitle images extracted           : %04d             """+
                               \ """\n=========================================="""+
                               \ """\nMin Correlation Above Th. : %f"""+
                               \ """\nSet Correlation Threshold : %f"""+
@@ -2835,7 +2888,7 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
                               \ """\nFrame No. of Min Correlation Above Th. : %d"""+
                               \ """\nFrame No. of Max Correlation Below Th. : %d"""+
                               \ """\n=========================================="""+
-                              \ """\nTime elapsed: %s""", NSubs,SubSuspect,SSubs,SubMinDur,TSubs,ESubs,Corr_AboveTh_Min,CorrTh,Corr_BelowTh_Max,Corr_AboveTh_Min_Fr,Corr_BelowTh_Max_Fr,RunTime), text_color=color_goldenrod)
+                              \ """\nTime elapsed: %s""", NSubs,SubSusDur,SSubs,SubSusLuma,SSubs2,SubMinDur,TSubs,SubMinLuma,TSubs2,ESsum,Corr_AboveTh_Min,CorrTh,Corr_BelowTh_Max,Corr_AboveTh_Min_Fr,Corr_BelowTh_Max_Fr,RunTime), text_color=color_goldenrod)
     return out
 }
 
