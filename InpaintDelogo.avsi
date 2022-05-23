@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.13                                                                                  #
+#   Version: 2.14                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,9 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.14 : 2022/05/22.  SubsMask2Img: New option to extract raw non-binarized images.
+#                             Enabled by "Extract=2" in InpaintDelogo() or "Raw" in SubsMask2Img().
+#                             New: "Raw", "RawAvr".
 # Version 2.13 : 2022/05/21.  SubsMask2Img: Added average luma check to catch non-sub images.
 #                             New: "SubMinLuma", "SubSusLuma".
 #                             Renamed: "SubSuspect" to "SubSusDur".
@@ -517,7 +520,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                                  Positive -> mt_expand> KillBlobs> mt_inpand (bit more effective).
 #                     'Stronger' and 'more effective' is less safe for Negative "KillBlobs".
 #                     Don't use if there is no thick halo.
-
+#
 #                     0 - Disabled  (default).
 #                    -1 - 'both' mode.
 #                    -2 - 'square' mode (bit stronger).
@@ -525,10 +528,16 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     2 - 'square' mode (bit stronger).
 
 
-# Int "Extract"     :  Extracts subtitles to images from a dynamic mask with SubsMask2Img() function (0 - Disabled, 1 - Enabled; default: 0).
+# Int "Extract"     :  Extracts subtitles to images from a dynamic mask with SubsMask2Img() function.
 #                     Works only with "DynMask" through "Show=4".
 #                     When enabled the script will work till extraction is done, so use only after a dynamic mask is all set.
-#                     Makes stuff work in one go, but it's much slower, see SubsMask2Img() manual somewhere below!
+#                     It will pass SubsMask2Img() parameters from InpaintDelogo() func to SubsMask2Img().
+#                     Makes stuff work in one go, but it's much slower than using SubsMask2Img() on a separate mask video.
+#                     See SubsMask2Img() manual somewhere below!
+#
+#                     0 - Off (Default).
+#                     1 - Extracts subtitles, black and white binarized images.
+#                     2 - Extracts subtitles, black and white binarized images and raw non-binarized images.
 
 
                  #   DynMask=3:   #
@@ -852,7 +861,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 
 
 # NOTES             : The subs detection looks only at the middle of video (10% width x 60% height)!
-#                     Clip is expected to be full range Y8 or it will be converted [but there is no conversion to full range].
+#                     Mask clip is expected to be full range Y8 or it will be converted [but there is no conversion to full range].
 
 
 # Int "Extract"     :  This is only InpaintDelogo() parameter!!!
@@ -862,9 +871,27 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #
 #                     Fast extraction:  InpaintDelogo() ->  encode the mask to a lossless file -> SubsMask2Img().
 #                     Good lossless x264 settings for a mask: "--preset ultrafast --range pc --cabac -q0".
+#
+#                    0 - Off (Default).
+#                    1 - Extracts subtitles, black and white binarized images.
+#                    2 - Extracts subtitles, black and white binarized images and raw non-binarized images.
 
 
-# String "ImgDir"   :  Path to directory where output images are to be written. MUST be set to existing directory.
+# Clip "Raw"        :  Enables extraction of raw non-binarized images from specified clip.
+#                     Crop this clip with "Loc" values used to get a mask, for example: rawclip = LWLibAvVideoSource("D:\original_video.mkv").crop(20,200,-50,-36)
+#                     This parameter can't be passed with InpaintDelogo(), there it's done automatically with "Extract=2" parameter.
+
+
+# Int "RawAvr"      :  Enables raw image averaging. Should increase OCR accuracy.
+#                     Maybe would decrease OCR accuracy on "jumpy" subtitles.
+#
+#                    0 - Disabled. Raw images not averaged.
+#                    1 - Enabled. Raw images will be averaged (default).
+
+
+# String "ImgDir"   :  Path to directory where black and white images are to be written. MUST be set to existing directory.
+#                     Extracting raw iamges: Folder for raw images must exist with '_raw' at the end of foldername:
+#                     For example: if ImgDir="D:\Images" then next to "Images" folder must exist "Images_raw" folder.
 
 
 # Float "CorrTh"    :  Correlation threshold to detect where subtitles in adjacent frames are the same (from 0.5 to 0.95; default: 0.8).
@@ -900,7 +927,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     Recommended setting: 3.
 
 
-# Int "ImgType"     :  Image type to write ("png" or "tif"; default: "png").
+# Int "ImgType"     :  Image type to write ("png", "tif" or "jpg"; default: "png").
 
 # Int "ImgInflate"  :  Inflate sub mask by 1 pixel (goes after upsize). (from 0 to 1; default: 0).
 
@@ -988,7 +1015,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ Show=0, mShow=0, rSize=4)
 
 
-SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=235, SubMinDur=12, SubSusDur=0,  SubMinLuma=0.5, SubSusLuma=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1 )
+SubsMask2Img( ImgDir="", CorrTh=0.8, SubTune=235, SubMinDur=12, SubSusDur=0,  SubMinLuma=0.5, SubSusLuma=0, ImgType="png", ImgInflate=0, ImgInvert=0, ImgSize=1, RawAvr=1 )
 
 */
 
@@ -1010,7 +1037,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "KillBlobs", int "preBlobs", int "rePass",
 \                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
 \                        int "DynMask4H", int "DynMaskUp", int "DynLocUp",
-\                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize",
+\                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize", Int "RawAvr",
 \                        int "AnalyzeTh", String "NoBorderAt", float "AlphaTweak",
 \                        int "DynColor", int "DynColorTol", int "DynColorInf",
 \                        int "DynTEdge", int "DynTEdgeThY", int "DynTEdgeInf", int "DynTuneInf")
@@ -1117,6 +1144,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     ImgInvert   = Default(ImgInvert   ,    0)
     ImgSize     = Default(ImgSize     ,    1)
     ImgDir      = Default(ImgDir      ,   "")
+    RawAvr      = Default(RawAvr      ,    1)
+    Assert (!(Extract  < 0  || Extract  >  2), """"Extract" value must be between 0 and 2.""")
 
     AnalyzeTh   = (clp.FrameCount < 45000) ? default (AnalyzeTh, 30) :
     \                                        default (AnalyzeTh, 16)
@@ -1981,7 +2010,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     } else if(show == 4) { # "Show" 4
 
-        (Extract == 0) ? DynamicMask : DynamicMask.SubsMask2Img(ImgDir=ImgDir, CorrTh=CorrTh, SubTune=SubTune, SubMinDur=SubMinDur, SubSusDur=SubSusDur, SubMinLuma=SubMinLuma, SubSusLuma=SubSusLuma, ImgType=ImgType, ImgInflate=ImgInflate, ImgInvert=ImgInvert, ImgSize=ImgSize)
+        (Extract == 0) ? DynamicMask :
+      \ (Extract == 1) ? DynamicMask.SubsMask2Img(ImgDir=ImgDir, CorrTh=CorrTh, SubTune=SubTune, SubMinDur=SubMinDur, SubSusDur=SubSusDur, SubMinLuma=SubMinLuma, SubSusLuma=SubSusLuma, ImgType=ImgType, ImgInflate=ImgInflate, ImgInvert=ImgInvert, ImgSize=ImgSize, RawAvr=RawAvr) :
+      \ (Extract == 2) ? DynamicMask.SubsMask2Img(ImgDir=ImgDir, CorrTh=CorrTh, SubTune=SubTune, SubMinDur=SubMinDur, SubSusDur=SubSusDur, SubMinLuma=SubMinLuma, SubSusLuma=SubSusLuma, ImgType=ImgType, ImgInflate=ImgInflate, ImgInvert=ImgInvert, ImgSize=ImgSize, RawAvr=RawAvr, Raw=inYV12) : nop
 
     } else if(show == 5) { # "Show" 5
 
@@ -2712,8 +2743,8 @@ Function VFX1(clip c, string FrameDB, int CropW, int CropH) {
 }
 
 # Mod of StainlessS's 'DetSub_Extract.avs' - https://forum.doom9.org/showthread.php?p=1950193
-Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma",
-\                     String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize")
+Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma",
+\                     String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize", Int "RawAvr")
 
 {
     StartTime   = TimerFX()
@@ -2728,6 +2759,7 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     ImgInvert   = Default(ImgInvert   ,    0)
     ImgSize     = Default(ImgSize     ,    1)
     ImgDir      = Default(ImgDir      ,   "")
+    RawAvr      = Default(RawAvr      ,    1)
 
     Assert (!(CorrTh      <   0.5 || CorrTh      >  0.95), """"CorrTh" value must be between 0.5 and 0.95.""")
     Assert (!(SubTune     <   100 || SubTune     >   254), """"SubTune" value must be between 200 and 254.""")
@@ -2735,10 +2767,11 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     Assert (!(SubSusDur   <     0 || SubSusDur   >    60), """"SubSusDur" value must be between 0 and 40.""")
     Assert (!(SubMinLuma  <     0 || SubMinLuma  >   0.5), """"SubMinLuma" value must be between 0 and 0.5.""")
     Assert (!(SubSusLuma  <     0 || SubSusLuma  >     5), """"SubSusLuma" value must be between 0 and 5.""")
-    Assert ( (ImgType    == "png" || ImgType    == "tif"), """"ImgType" string must be 'png' or 'tif'.""")
+    Assert ( (ImgType    == "png" || ImgType    == "tif" || ImgType    == "jpg"), """"ImgType" string must be 'png', 'tif' or 'jpg'.""")
     Assert (!(ImgInflate   <    0 || ImgInflate  >     1), """"ImgInflate" value must be between 0 and 1.""")
     Assert (!(ImgInvert    <    0 || ImgInvert   >     1), """"ImgInvert" value must be between 0 and 1.""")
     Assert (!(ImgSize      <    1 || ImgSize     >     4), """"ImgSize" value must be between 1 and 4.""")
+    Assert (!(RawAvr       <    0 || RawAvr      >     1), """"RawAvr" value must be between 0 and 1.""")
 
     Assert (ImgDir!="","""Specify "ImgDir" (folder must exist)!"""+Chr(10)+"""Can use '.\' for current directory.""")
     ImgDir = RT_GetFullPathname(ImgDir)
@@ -2746,6 +2779,18 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
     while  (ImgDir.FindStr("\")==1 || ImgDir.FindStr("/")==1) { ImgDir=ImgDir.MidStr(2)}
     ImgDir = ImgDir.RevStr
     Assert (ImgDir.Exist,""""ImgDir" folder not found!""")
+
+    ImgDirRaw = ImgDir + "_raw"
+    RawClip   = (IsClip(Raw) == true) ? 1 : 0
+
+    if (RawClip == 1) {
+       Assert (ImgDirRaw!=".\_raw","""Specify "ImgDir" (folder must exist)!""")
+       ImgDirRaw = RT_GetFullPathname(ImgDirRaw)
+       ImgDirRaw = ImgDirRaw.RevStr
+       while  (ImgDirRaw.FindStr("\")==1 || ImgDirRaw.FindStr("/")==1) { ImgDirRaw=ImgDirRaw.MidStr(2)}
+       ImgDirRaw = ImgDirRaw.RevStr
+       Assert (ImgDirRaw.Exist,"""Folder for the raw images not found!""")
+    }
 
     RangeDB = ("~SubsMask2Img_RangeDB_"+RT_LocalTimeString+".DB").RT_GetFullPathName
     FrameDB = ("~SubsMask2Img_FrameDB_"+RT_LocalTimeString+".DB").RT_GetFullPathName
@@ -2836,6 +2881,14 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
                 OneF4 = (ImgInflate ==  0) ? OneF3 : OneF3.mt_expand(mode="square")
                 OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
                 OneF5.ImageWriter(ImgDir+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+                if(RawClip == 1){
+                    if(RawAvr == 1){
+                        Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).ConvertToRGB24
+                    } else {
+                        Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart+1)/2,-1).ConvertToRGB24
+                    }
+                    Raw0.ImageWriter(ImgDirRaw+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+                }
             } else if(avgL >= SubMinLuma) {
                   OneF1 = One0.mt_binarize(SubTune)
                   OneF2 = (ImgType == "png") ? OneF1 : OneF1.ConvertToRGB24
@@ -2844,6 +2897,14 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
                   OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
                   OneF5.ImageWriter(ImgDir+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
                   SSubs2 = SSubs2+1
+                  if(RawClip == 1){
+                      if(RawAvr == 1){
+                          Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).ConvertToRGB24
+                      } else {
+                          Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart+1)/2,-1).ConvertToRGB24
+                      }
+                      Raw0.ImageWriter(ImgDirRaw+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+                  }
             } else {
                   ESubs2 = ESubs2-1
             }
@@ -2859,6 +2920,14 @@ Function SubsMask2Img(clip clp, String "ImgDir", Float "CorrTh", Int "SubTune", 
                   OneF5 = (ImgInvert  ==  0) ? OneF4 : OneF4.Invert
                   OneF5.ImageWriter(ImgDir+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
                   SSubs = SSubs+1
+                  if(RawClip == 1){
+                      if(RawAvr == 1){
+                          Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).ConvertToRGB24
+                      } else {
+                          Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart+1)/2,-1).ConvertToRGB24
+                      }
+                      Raw0.ImageWriter(ImgDirRaw+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
+                  }
               } else {
                   ESubs2 = ESubs2-1
               }
