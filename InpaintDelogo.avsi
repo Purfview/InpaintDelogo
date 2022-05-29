@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.15 : 2022/05/29.  Spaces are allowed in "Loc".
 # Version 2.14 : 2022/05/22.  SubsMask2Img: New option to extract raw non-binarized images.
 #                             Enabled by "Extract=2" in InpaintDelogo() or "Raw" in SubsMask2Img().
 #                             New: "Raw", "RawAvr".
@@ -186,7 +187,6 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
                  #=================#
 
 # String "Loc"      :  Use InpaintLoc() function to find coordinates.
-#                     Spaces are not allowed in "Loc" parameter.
 #                     Use even(mod2) numbers.
 #                     Include 10(no less) - ~16 pixel borders around logo!
 #                     Black or other borders shouldn't be present in the "Loc" area.
@@ -1236,7 +1236,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugDynTuneInf  = (DynTuneInf  < -1 || DynTuneInf        > 4) ? true : false
 
 
-    assert        ( findstr(loc," ")  == 0      , """Space character is not allowed in string "Loc".""")
     assert        ( IsString(mask) || IsClip(mask), """"mask" only accepts string/path or clip input.""")
     assert        ( bugcombo4         == false  , """You have to define the "mask" string""")
     assert        ( bugcombo5         == false  , "Specify full path to the logo mask!")
@@ -1411,6 +1410,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     #======#
 
 
+    loc         = ReplaceStr(loc," ","")
     long        = StrLen(loc)
 
     posvirg1    = findstr(loc, ",")
@@ -2695,9 +2695,9 @@ function InpaintLoc ( clip clp, string "loc")
 
     bugloc      = (loc == "" ) ? true : false
 
-    assert        ( findstr(loc," ")  == 0      , """Space character is not allowed in string "Loc".""")
     assert        ( bugloc            == false  , """You must define "Loc".""")
 
+    loc         = ReplaceStr(loc," ","")
     long        = StrLen(loc)
     posvirg1    = findstr(loc, ",")
     posvirg2    = findstr(rightstr(loc,long-posvirg1), ",")
