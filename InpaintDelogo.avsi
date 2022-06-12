@@ -1744,7 +1744,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     # DynColor / DynMask5
     if (ColorSwitch == 1) {
         col_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 6 && DynMask != 7) ? eval("""
-                      #col_mask = inYV12a.ConvertToRGB32(matrix=matrixID).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoon2PX(DynColorInf)
                       col_mask = inRGB32.BilinearResize(locW*DynLocUp, locH*DynLocUp).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoon2PX(DynColorInf)
                       return col_mask """) : nop
     } else if (ColorSwitch == 2) {
