@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.15                                                                                  #
+#   Version: 2.16                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,9 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.16 : 2022/06/12.  Higher quality and faster "DynColor" mask when used with "DynLocUp".
+#                             Faster "DynColor" alternative if parameter is string, and it supports multiple colors.
+#                             TColorMask plugin is required.
 # Version 2.15 : 2022/05/29.  Spaces are allowed in "Loc".
 # Version 2.14 : 2022/05/22.  SubsMask2Img: New option to extract raw non-binarized images.
 #                             Enabled by "Extract=2" in InpaintDelogo() or "Raw" in SubsMask2Img().
@@ -138,6 +141,7 @@
 #  FrameSel      ( http://avisynth.nl/index.php/FrameSel ).
 #  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
 #  vsTEdgeMask   ( https://github.com/Asd-g/AviSynth-vsTEdgeMask ).
+#  TColorMask    ( https://github.com/Asd-g/AviSynth-tcolormask ).
 
 
 ##================================================================================================##
@@ -442,15 +446,13 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #=============================================================================================================
 # NOTES:             :  When "DynMask=5": "DynInflate" is auto hardset to 0.
 
-
-# Int "DynColor"     :  Auto generation of the dynamic mask by color. (from 0[$000000] to $FFFFFF; default: 0).
+# val "DynColor"     :  Auto generation of the dynamic mask by color. (from $000000 to $FFFFFF; default: 0).
 #                      Color of logo/subtitle in RGB [hex value].
-#                      Use AvsPmod to get color value ('CopyPixelinfo' macro can be used for a fast copy).
+#                      If value is string then faster alternative is used, TColorMask instead of ColorKeyMask, and it supports multiple colors. ["$000000 $FFFFFF"]
+#                      Use preview in AvsPmod to get RGB color value, use ConvertToRGB24(matrix="Rec601 or 709"). ['CopyPixelinfo' macro can be used for a fast copy.]
 #                      0 - Disabled  (default).
 
-
-# Int "DynColorTol"  :  Parameter for "DynColor". Color tolerance. (from 1 to 80; default: 10).
-
+# Int "DynColorTol"  :  Parameter for "DynColor". Color tolerance. (from 1 to 100; default: 10).
 
 # Int "DynColorInf"  :  Inflates "DynColor" mask. (from 0 to 4; default: 1).
 #=============================================================================================================
@@ -459,7 +461,6 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #   DynMask=6.
 #=============================================================================================================
 # NOTES:             :  When "DynMask=6": "DynInflate" is auto hardset to 0.
-
 
 # Int "DynTune"      :  A dynamic mask for "DynMask=2/3/4/6". Binarization threshold [brighness level]. (from 1 to 254; default: 200).
 #                      Lower values -> mask expands more into the darker areas of video.
@@ -473,15 +474,12 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #=============================================================================================================
 # NOTES:             :  When "DynMask=7": "DynInflate" is auto hardset to 0.
 
-
 # Int "DynTEdge"     :  Auto generation of the dynamic mask by gradient magnitude map. (from 0 to 1; default: 0).
 #                      0 - Disabled  (default).
-
 
 # Int "DynTEdgeThY"  :  Parameter for "DynTEdge". Magnitude threshold. (from 10 to 100; default: 20).
 #                       Adjust it where background brightness is similar to logo/subtitle text brightness.
 #                       Aim is to get good edges then inflate till logo/subtitle is covered. Lower - more wrong edges.
-
 
 # Int "DynTEdgeInf"  :  Inflates "DynTEdge" mask. (from 0 to 8; default: 2).
 #=============================================================================================================
@@ -1039,7 +1037,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "DynMask4H", int "DynMaskUp", int "DynLocUp",
 \                        int "Extract", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma", String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize", Int "RawAvr",
 \                        int "AnalyzeTh", String "NoBorderAt", float "AlphaTweak",
-\                        int "DynColor", int "DynColorTol", int "DynColorInf",
+\                        val "DynColor", int "DynColorTol", int "DynColorInf",
 \                        int "DynTEdge", int "DynTEdgeThY", int "DynTEdgeInf", int "DynTuneInf")
 
 {
@@ -1227,8 +1225,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugDynPostTune = (DynPostTune  < 0 || DynPostTune      >  5) ? true : false
     bugDyn3buffer  = (Dyn3buffer   < 0 || Dyn3buffer       >  1) ? true : false
     bugAlphaTweak  = (AlphaTweak < -3.0 || AlphaTweak     > 3.0) ? true : false
-    bugDynColor    = (DynColor     < 0 || DynColor   > 16777215) ? true : false
-    bugDynColorTol = (DynColorTol  < 1 || DynColorTol      > 80) ? true : false
+    bugDynColorTol = (DynColorTol  < 1 || DynColorTol      > 100) ? true : false
     bugDynColorInf = (DynColorInf  < 0 || DynColorInf       > 4) ? true : false
     bugDynTEdge    = (DynTEdge     < 0 || DynTEdge          > 1) ? true : false
     bugDynTEdgeThY = (DynTEdgeThY  <10 || DynTEdgeThY     > 100) ? true : false
@@ -1309,8 +1306,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugDynPostTune    == false  , """"DynPostTune" value must be between 0 and 5.""")
     assert        ( bugDyn3buffer     == false  , """"Dyn3buffer" value must be between 0 and 1.""")
     assert        ( bugAlphaTweak     == false  , """"AlphaTweak" value must be between -3.0 and 3.0.""")
-    assert        ( bugDynColor       == false  , """"DynColor" value must be between $000000 and $FFFFFF.""")
-    assert        ( bugDynColorTol    == false  , """"DynColorTol" value must be between 1 and 80.""")
+    assert        ( bugDynColorTol    == false  , """"DynColorTol" value must be between 1 and 100.""")
     assert        ( bugDynColorInf    == false  , """"DynColorInf" value must be between 0 and 4.""")
     assert        ( bugDynTEdge       == false  , """"DynTEdge" value must be between 0 and 1.""")
     assert        ( bugDynTEdgeThY    == false  , """"DynTEdgeThY" value must be between 10 and 100.""")
@@ -1334,8 +1330,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     amixhigh    = int((-1*amix)*3+20)
     sSize       = float(rSize)
     sSize       = round(sSize/2.5)
-    HD          = (x > 576) ? true : false
-    matrixID    = (HD == true) ? "Rec709" : "Rec601"
+    isHD        = (x > 576) ? true : false
+    matrixID    = (isHD == true) ? "Rec709" : "Rec601"
     mskPatch    = (maskPatch != "") ? 1 : 0
 
     # Hard overrides:
@@ -1375,10 +1371,22 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     # DynMask=5 / DynColor:
     DynInflate    = (DynMask ==  5                    ) ? 0 : DynInflate
 
-    cm_bugcombo0  = (DynColor       == 0 && DynMask       == 5) ? true : false
-    cm_bugcombo1  = (DynColor        > 0 && DynMask        < 2) ? true : false
-    assert        ( cm_bugcombo0   == false   , """Nothing to do for "DynMask=5" if "DynColor=0".""")
-    assert        ( cm_bugcombo1   == false   , """"DynColor" can be used only with internal "DynMask" methods.""")
+    if (IsString(DynColor)) {
+        ColorSwitch = 2
+        assert(findstr(DynColor,"$") != 0, """Wrong "DynColor" value!""")
+    } else if (IsInt(DynColor)) {
+        if (DynColor == 0) {
+            ColorSwitch = 0
+            assert(!(DynMask == 5), """Nothing to do for "DynMask=5" if "DynColor=0".""")
+        } else {
+            ColorSwitch = 1
+            assert(!(DynColor < 0 || DynColor > 16777215), """"DynColor" value must be between $000000 and $FFFFFF.""")
+        }
+    } else {
+        assert(false, """Wrong "DynColor" value!""")
+    }
+
+    assert(!(ColorSwitch > 0 && DynMask < 2), """"DynColor" can be used only with internal "DynMask" methods.""")
 
     # DynMask=6 / DynTune:
     DynInflate    = (DynMask ==  6                    ) ? 0 : DynInflate
@@ -1734,9 +1742,16 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                   return lvl_mask """) : nop
 
     # DynColor / DynMask5
-    col_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynColor > 0 && DynMask != 6 && DynMask != 7) ? eval("""
-                  col_mask = inYV12a.ConvertToRGB32(matrix=matrixID).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoon2PX(DynColorInf)
-                  return col_mask """) : nop
+    if (ColorSwitch == 1) {
+        col_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 6 && DynMask != 7) ? eval("""
+                      #col_mask = inYV12a.ConvertToRGB32(matrix=matrixID).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoon2PX(DynColorInf)
+                      col_mask = inRGB32.BilinearResize(locW*DynLocUp, locH*DynLocUp).ColorKeyMask(DynColor, DynColorTol).ShowAlpha(Pixel_Type="Y8").invert.MTballoon2PX(DynColorInf)
+                      return col_mask """) : nop
+    } else if (ColorSwitch == 2) {
+        col_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 6 && DynMask != 7) ? eval("""
+                      col_mask = inYV12.ConvertToYV24.BilinearResize(locW*DynLocUp, locH*DynLocUp).TColorMask(DynColor, tolerance=DynColorTol, bt601=!isHD, mt=false, onlyY=true).MTballoon2PX(DynColorInf)
+                      return col_mask """) : nop
+    }
 
     # DynTEdge / DynMask7
     # "vsTEdgeMask(threshY=20.0, type=1, link=0)" result is almost same as "vsTCanny(sigmaY=0, mode=1, op=0).mt_binarize(40)" but ~twice faster
@@ -1747,12 +1762,12 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     # Combo mask
     if (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 6 && DynMask != 7) {
-        if (DynColor > 0 && DynTEdge == 1) {
+        if (ColorSwitch > 0 && DynTEdge == 1) {
             combo_mask =   lvl_mask.mt_logic(  col_mask, mode="and")
             combo_mask = combo_mask.mt_logic(tedge_mask, mode="and")
-        } else if (DynColor == 0 && DynTEdge == 1) {
+        } else if (ColorSwitch == 0 && DynTEdge == 1) {
             combo_mask =   lvl_mask.mt_logic(tedge_mask, mode="and")
-        } else if (DynColor  > 0 && DynTEdge == 0) {
+        } else if (ColorSwitch  > 0 && DynTEdge == 0) {
             combo_mask =   lvl_mask.mt_logic(  col_mask, mode="and")
         } else {
             combo_mask = lvl_mask
@@ -1991,7 +2006,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
         \  (mode == "both") ? StackVertical (a1,a2,a3,a4) :
         \                     StackVertical (a1,a2      )
 
-        (rSize >= 4) ? Spline16Resize(last,sSize*width(last),sSize*height(last)):
+        (rSize >= 4) ? Spline16Resize(last,sSize*width(last),sSize*height(last)).ConvertToRGB24:
         \              last.ConvertToRGB24
 
     } else if(show == 2) { # "Show" 2
