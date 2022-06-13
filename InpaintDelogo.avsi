@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 2.16                                                                                  #
+#   Version: 2.17                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 2.17 : 2022/06/13.  Option for ranged luma mask with DynMask6.
 # Version 2.16 : 2022/06/12.  Higher quality and faster "DynColor" mask when used with "DynLocUp".
 #                             Faster "DynColor" alternative if parameter is string, and it supports multiple colors.
 #                             TColorMask plugin is required.
@@ -446,7 +447,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #=============================================================================================================
 # NOTES:             :  When "DynMask=5": "DynInflate" is auto hardset to 0.
 
-# val "DynColor"     :  Auto generation of the dynamic mask by color. (from $000000 to $FFFFFF; default: 0).
+# Val "DynColor"     :  Auto generation of the dynamic mask by color. (from $000000 to $FFFFFF; default: 0).
 #                      Color of logo/subtitle in RGB [hex value].
 #                      If value is string then faster alternative is used, TColorMask instead of ColorKeyMask, and it supports multiple colors. ["$000000 $FFFFFF"]
 #                      Use preview in AvsPmod to get RGB color value, use ConvertToRGB24(matrix="Rec601 or 709"). ['CopyPixelinfo' macro can be used for a fast copy.]
@@ -462,9 +463,10 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #=============================================================================================================
 # NOTES:             :  When "DynMask=6": "DynInflate" is auto hardset to 0.
 
-# Int "DynTune"      :  A dynamic mask for "DynMask=2/3/4/6". Binarization threshold [brighness level]. (from 1 to 254; default: 200).
+# Val "DynTune"      :  A dynamic mask for "DynMask=2/3/4/6". Binarization threshold [luma/brighness level]. (from 10 to 254; default: 200).
 #                      Lower values -> mask expands more into the darker areas of video.
 #                      Set highest where logo/subtitle is still visible.
+#                      Luma range mask can be made with string: "180 - 200".
 
 # Int "DynTuneInf"  :  Inflates "DynTune" mask. (from -1 to 4; default: 0).
 #=============================================================================================================
@@ -1030,7 +1032,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "Deep", int "rSize", int "prePP", int "KillShape", int "Turbo",
 \                        int "iTune", int "iTinflate", int "oTinflate", int "diPPm", int "diPP",
 \                        int "EdgePP", int"EdgePos", int"EdgeWide", int "IntSpd", int"DynMask",
-\                        int "DynTune", int "DynInflate", int "KillNoise", string "maskPatch",
+\                        val "DynTune", int "DynInflate", int "KillNoise", string "maskPatch",
 \                        int "ClpBlend", int "DynPostTune", int "Dyn3Seq", int "Dyn3buffer",
 \                        int "KillBlobs", int "preBlobs", int "rePass",
 \                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
@@ -1171,7 +1173,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     bugdippm    = (dippm        < 0 || dippm        >  3) ? true : false
     bugoppm     = (oppm         < 0 || oppm         >  3) ? true : false
     bugdynmask  = (dynmask      < 0 || dynmask      >  7) ? true : false
-    bugdyntune  = (dyntune      < 1 || dyntune     > 254) ? true : false
     bugdynflate = (dyninflate  < -1 || dyninflate   >  4) ? true : false
     buggrainpp  = (grainpp      < 0 || grainpp      >  3) ? true : false
     buginflate  = (inflate      < 0 || inflate      >  2) ? true : false
@@ -1267,7 +1268,6 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     assert        ( bugdippm          == false  , """"diPPm" value must be between 0 and 3.""")
     assert        ( bugoppm           == false  , """"oPPm" value must be between 0 and 3.""")
     assert        ( bugdynmask        == false  , """"DynMask" value must be between 0 and 7.""")
-    assert        ( bugdyntune        == false  , """"DynTune" value must be between 1 and 254.""")
     assert        ( bugdynflate       == false  , """"DynInflate" value must be between -1 and 4.""")
     assert        ( buggrainpp        == false  , """"GrainPP" value must be between 0 and 3.""")
     assert        ( buginflate        == false  , """"Inflate" value must be between 0 and 2.""")
@@ -1390,6 +1390,25 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     # DynMask=6 / DynTune:
     DynInflate    = (DynMask ==  6                    ) ? 0 : DynInflate
+
+    if (IsString(DynTune)) {
+        assert(findstr(DynTune," - ") != 0, """Wrong "DynTune" value!""")
+        LumaSwitch = 2
+        LumaMin    = Int(Value( LeftStr(DynTune, 3)))
+        LumaMax    = Int(Value(RightStr(DynTune, 3)))
+        assert(!(LumaMin >= LumaMax), """Wrong "DynTune" value!""")
+        LumaExpr   = "x xxx > x yyy < & 255 0 ?"
+        LumaExpr   = ReplaceStr(LumaExpr,"xxx", Format("{LumaMin}"))
+        LumaExpr   = ReplaceStr(LumaExpr,"yyy", Format("{LumaMax}"))
+        assert(!(LumaMin < 10 || LumaMin > 254), """"DynTune" values must be between 10 and 254.""")
+        assert(!(LumaMax < 10 || LumaMax > 254), """"DynTune" values must be between 10 and 254.""")
+        DynTune = LumaMin
+    } else if (IsInt(DynTune)) {
+        LumaSwitch = 1
+        assert(!(DynTune < 10 || DynTune > 254), """"DynTune" value must be between 10 and 254.""")
+    } else {
+        assert(false, """Wrong "DynTune" value!""")
+    }
 
     # DynMask=7 / DynTEdge:
     DynInflate    = (DynMask ==  7                    ) ? 0 : DynInflate
@@ -1737,9 +1756,15 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     }
 
     # DynTune  / DynMask6
-    lvl_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 7) ? eval("""
-                  lvl_mask = inY8.mt_binarize(threshold=DynTune).MTballoonPX(DynTuneInf)
-                  return lvl_mask """) : nop
+    if (LumaSwitch == 1) {
+        lvl_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 7) ? eval("""
+                      lvl_mask = inY8.mt_binarize(threshold=DynTune).MTballoonPX(DynTuneInf)
+                      return lvl_mask """) : nop
+    } else if (LumaSwitch == 2) {
+        lvl_mask    = (automask == 0 && mode == "inpaint" && DynMask > 1 && DynMask != 5 && DynMask != 7) ? eval("""
+                      lvl_mask = inYV12.ExtractY.BilinearResize(locW*DynLocUp, locH*DynLocUp).mt_lut(expr=LumaExpr).MTballoonPX(DynTuneInf)
+                      return lvl_mask """) : nop
+    }
 
     # DynColor / DynMask5
     if (ColorSwitch == 1) {
