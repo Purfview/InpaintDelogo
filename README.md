@@ -1,3 +1,5 @@
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate?hosted_button_id=JF5BEQE3YQGH2)   
+      
 <pre><code>##================================================================================================##
 #                                                                                                  #
 #             ____                  _       __  ____       __                                      #
@@ -20,7 +22,7 @@
  
 <pre><code> 
 Core requirements:
-AviSynth+ v3.7.1 or later ( https://github.com/AviSynth/AviSynthPlus ).
+AviSynth+ v3.7.2 or later ( https://github.com/AviSynth/AviSynthPlus ).
 AvsInpaint v1.3 or later  ( https://github.com/pinterf/AvsInpaint ).
 
 Other requirements:
@@ -34,6 +36,13 @@ FrameSel      ( http://avisynth.nl/index.php/FrameSel ).
 GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).   
 vsTEdgeMask   ( https://github.com/Asd-g/AviSynth-vsTEdgeMask ).
 TColorMask    ( https://github.com/Asd-g/AviSynth-tcolormask ).   
+    
+Requirements for fast subtitles extraction:
+LSMASH        ( http://avisynth.nl/index.php/LSMASHSource ).
+TWriteAVI     ( https://github.com/Asd-g/AviSynth-TWriteAVI ).
+x264vfw       ( https://sourceforge.net/projects/mpxplay/files/x264vfw ).
 </code></pre>
  
  https://forum.doom9.org/showthread.php?t=176860
+      
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate?hosted_button_id=JF5BEQE3YQGH2)    
