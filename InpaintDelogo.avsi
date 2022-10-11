@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.00                                                                                  #
+#   Version: 3.1                                                                                  #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 3.1  : 2022/10/11.  Fixed: "Deblend" with positive "Analyze" was unreliable on the colored logos.
 # Version 3.00 : 2022/10/07.  Fixed: A frame selection scan result wasn't saved properly when "Automask=1" and "Inpaint" mode,
 #                                    now the deblending masks generation is up to twice faster in this scenario.
 #                             New feature: Easy use of the ebmp masks on other videos, you can input them directly with "Mask" parameter.
@@ -1136,7 +1137,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ YColorSolidIns=-1, UColorSolidIns=-1, VColorSolidIns=-1,
 \ YAlphaSolidOuts=-1, UAlphaSolidOuts=-1, VAlphaSolidOuts=-1,
 \ YAlphaSolidIns=-1, UAlphaSolidIns=-1, VAlphaSolidIns=-1,
-\ YOffsetIns=-1, YOffsetOuts=1, YOffsetIns=-2, YOffsetOuts=2, ShiftMasksVe=0, ShiftMasksHo=0,
+\ YOffsetIns=-1, YOffsetOuts=1, UVOffsetIns=-2, UVOffsetOuts=2, ShiftMasksVe=0, ShiftMasksHo=0,
 \ YAlphaExternal="", WholeDeblend=0, TriggerDynamic=0, DumpMasks=0)
 
 
@@ -1851,12 +1852,14 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                 YYY = last.ConvertToY8
                 UUU = last.UToY8
                 VVV = last.VToY8
-                YYY.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
-                ScanY = StackVertical(last,Imgmask.ConvertToY8(Matrix="PC.601"))
-                UUU.AnalyzeLogo(mask=BasemaskUV).Trim(0,-1)
-                ScanU = last
-                VVV.AnalyzeLogo(mask=BasemaskUV).Trim(0,-1)
-                ScanV = last
+                FFF = last
+                YYYm   = YYY.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
+                ScanY  = StackVertical(YYYm,Imgmask.ConvertToY8(Matrix="PC.601"))
+                FFFm   = FFF.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
+                CCCm   = FFFm.crop(0,0,0,locH)
+                uvA    = FFFm.crop(0,locH,0,0).ConvertToY8.Spline36Resize(LocW/2, locH/2)
+                ScanU  = StackVertical(CCCm.UToY8, uvA)
+                ScanV  = StackVertical(CCCm.VToY8, uvA)
                 ScanUV = StackVertical(ScanU,ScanV,BlankClip(ScanV))
                 StackHorizontal(ScanY,ScanUV)
                 ImageWriter(LogoID +"%.0d.ebmp",0,1,"ebmp").RT_YankChain(n=0)
@@ -2088,9 +2091,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             inYV12Y     = inYV12.ConvertToY8
             inYV12U     = inYV12.UToY8
             inYV12V     = inYV12.VToY8
-            OutY        = inYV12Y.DeblendLogo(LogoColorY,  LogoAlphaY)
-            OutU        = inYV12U.DeblendLogo(LogoColorU,  LogoAlphaU)
-            OutV        = inYV12V.DeblendLogo(LogoColorV,  LogoAlphaV)
+            OutY        = inYV12Y.DeblendLogo(LogoColorY, LogoAlphaY)
+            OutU        = inYV12U.DeblendLogo(LogoColorU, LogoAlphaU)
+            OutV        = inYV12V.DeblendLogo(LogoColorV, LogoAlphaV)
             LogoDeblPre = CombinePlanes(OutY, OutU, OutV, planes="YUV", source_planes="YYY", pixel_type="YV12")
         } else {
             if(deep != 1) {
