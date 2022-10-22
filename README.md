@@ -36,6 +36,7 @@ FrameSel      ( http://avisynth.nl/index.php/FrameSel ).
 GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).   
 vsTEdgeMask   ( https://github.com/Asd-g/AviSynth-vsTEdgeMask ).
 TColorMask    ( https://github.com/Asd-g/AviSynth-tcolormask ).   
+FFT3DFilter   ( http://avisynth.nl/index.php/FFT3DFilter ).    
     
 Requirements for fast subtitles extraction:
 LSMASH        ( http://avisynth.nl/index.php/LSMASHSource ).
