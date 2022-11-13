@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.2                                                                                   #
+#   Version: 3.3                                                                                   #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 3.3  : 2022/11/13.  Corrected a code 'typo' in SubsMask2Img(), introduced in v2.10.
 # Version 3.2  : 2022/10/22.  New feature: Conditional optimizations with "Optimize", enabled by default.
 #                                          Up to ~1000% speed-up for slow "Inpaint" & "Interp" presets.
 #                                          Additional auto "Interp" disabling.
@@ -3462,7 +3463,7 @@ Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int
         SubDur   = SubEnd - SubStart + 1
         if(SubDur >= SubMinDur && SubDur > SubSusDur) {
             FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
-            One0  = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1)
+            One0  = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1)
             avgL  = One0.crop(coordLp, coordT, coordW, coordH).mt_binarize(254).AverageLuma
             if(avgL >= SubMinLuma && avgL >= SubSusLuma) {
                 OneF1 = One0.mt_binarize(SubTune)
@@ -3473,9 +3474,9 @@ Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int
                 OneF5.ImageWriter(ImgDir+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
                 if(RawClip == 1){
                     if(RawAvr == 1){
-                        Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).ConvertToRGB24
+                        Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1).ConvertToRGB24
                     } else {
-                        Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart+1)/2,-1).ConvertToRGB24
+                        Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart)/2,-1).ConvertToRGB24
                     }
                     Raw0.ImageWriter(ImgDirRaw+"\"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
                 }
@@ -3489,9 +3490,9 @@ Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int
                   SSubs2 = SSubs2+1
                   if(RawClip == 1){
                       if(RawAvr == 1){
-                          Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).ConvertToRGB24
+                          Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1).ConvertToRGB24
                       } else {
-                          Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart+1)/2,-1).ConvertToRGB24
+                          Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart)/2,-1).ConvertToRGB24
                       }
                       Raw0.ImageWriter(ImgDirRaw+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
                   }
@@ -3500,7 +3501,7 @@ Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int
             }
         } else if(SubDur >= SubMinDur) {
               FNam  = Frame2TimeFX(SubStart,fps) +"__"+ Frame2TimeFX(SubEnd+1,fps)
-              One0  = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1)
+              One0  = inY8.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1)
               avgL  = One0.crop(coordLp, coordT, coordW, coordH).mt_binarize(254).AverageLuma
               if(avgL >= SubMinLuma) {
                   OneF1 = One0.mt_binarize(SubTune)
@@ -3512,9 +3513,9 @@ Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int
                   SSubs = SSubs+1
                   if(RawClip == 1){
                       if(RawAvr == 1){
-                          Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart+1,-1).ConvertToRGB24
+                          Raw0 = Raw.Trim(SubStart,SubEnd).ClipBlend.Trim(SubEnd-SubStart,-1).ConvertToRGB24
                       } else {
-                          Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart+1)/2,-1).ConvertToRGB24
+                          Raw0 = Raw.Trim(SubStart,SubEnd).Trim(abs(SubEnd-SubStart)/2,-1).ConvertToRGB24
                       }
                       Raw0.ImageWriter(ImgDirRaw+"\_"+FNam+"%.0d.%s",0,-1,ImgType).RT_YankChain(n=0)
                   }
