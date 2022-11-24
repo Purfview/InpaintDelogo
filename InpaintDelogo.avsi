@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.3                                                                                   #
+#   Version: 3.4                                                                                   #
 ##================================================================================================##
 
 
@@ -30,6 +30,10 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 3.4  : 2022/11/24.  New feature: "Greyscale" parameter, affects positive "Analyze", "Deblend", "Inpaint"...
+#                                          Up to ~60% speed-up when enabled.
+#                                          Prevents chroma changes on the greyscale videos by deblend [side effect of "3.1" fix].
+#                             FFT3DFilter replaced by Neo_FFT3D, up to ~20% speed-up.
 # Version 3.3  : 2022/11/13.  Corrected a code 'typo' in SubsMask2Img(), introduced in v2.10.
 # Version 3.2  : 2022/10/22.  New feature: Conditional optimizations with "Optimize", enabled by default.
 #                                          Up to ~1000% speed-up for slow "Inpaint" & "Interp" presets.
@@ -184,7 +188,7 @@
 #  GrainFactory3 ( http://avisynth.nl/index.php/GrainFactory3 ).
 #  vsTEdgeMask   ( https://github.com/Asd-g/AviSynth-vsTEdgeMask ).
 #  TColorMask    ( https://github.com/Asd-g/AviSynth-tcolormask ).
-#  FFT3DFilter   ( http://avisynth.nl/index.php/FFT3DFilter ).
+#  Neo_FFT3D     ( http://avisynth.nl/index.php/Neo_FFT3D ).
 
 #   Requirements for fast subtitles extraction:
 #  LSMASH        ( http://avisynth.nl/index.php/LSMASHSource ).
@@ -263,6 +267,15 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     "mask" accepts clip input, resolution must be same as "Loc" area.
 #                     Dynamic mask expected to be full range Y8 or will be converted.
 #                     Static mask must be one frame clip otherwise it will be treated as a dynamic mask.
+
+
+# Int "Greyscale"   :  Up to ~60% speed-up with "Greyscale=1", affects positive "Analyze", "Deblend", "Inpaint", ect..
+#                     Prevents chroma changes on the greyscale videos by deblend [side effect of "3.1" fix].
+#                     Note: Changing this param doesn't trigger ReAnalyze [not all combinations needs to be re-analyzed].
+#
+#                     0 - Off (default).
+#                     1 - Use on the greyscale videos.
+#                     2 - This should be used on the colored videos where a transparent logo is only in luma [no idea if such videos exists...].
 
 
 # Int "Automask"    :  It's like a different function when On, just generates the base mask
@@ -1124,7 +1137,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 /*
 
 InpaintDelogo( mask="c:\test\mymask.bmp",
-\ Automask=0, aMix=0, Loc="100,100,-100,-100", Mode="Inpaint",
+\ Automask=0, aMix=0, Loc="100,100,-100,-100", Mode="Inpaint", Greyscale=0,
 \ Analyze=2, FrB=0, FrW=0, FrS=0, AnalyzeTh=30, NoBorderAt="none",
 \ Inflate=1, Deep=3, ReAnalyze=0,
 \ Interp=2, IntSpd=1, InterpM=0, iTune=0, iTinflate=0,
@@ -1191,7 +1204,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "YAlphaSolidIns", int "UAlphaSolidIns", int "VAlphaSolidIns",
 \                        int "YOffsetIns", int "YOffsetOuts", int "UVOffsetIns", int "UVOffsetOuts", int "ShiftMasksVe", int "ShiftMasksHo",
 \                        val "YAlphaExternal", int "WholeDeblend", int "TriggerDynamic", int "DumpMasks",
-\                        val "Optimize")
+\                        val "Optimize", int "Greyscale", int "OldAnalyze")
 
 
 {
@@ -1343,6 +1356,10 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                                                          Assert (!(Optimize         >   0 && Turbo           >   0), """"Optimize" can't be used with positive "Turbo".""")
                                                          Assert (!(Optimize         >   0 && DynMask        !=   0), """"Optimize" can't be used with "DynMask".""")
                                                          if(Optimize > 0) { Assert (!(sharpness != 45 || preBlur != 6.5 || postBlur != 4 || radius != 8), """"Optimize" can't be used with custom inpainting settings.""") }
+
+    Greyscale        = Default (Greyscale       ,  0)    Assert (!(Greyscale        <   0 || Greyscale       >   2), """"Greyscale" value must be between 0 and 2.""")
+    OldAnalyze       = Default (OldAnalyze      ,  0)    Assert (!(OldAnalyze       <   0 || OldAnalyze      >   1), """"OldAnalyze" value must be between 0 and 1.""")
+                                                         Assert (!(OldAnalyze      ==   1 && Greyscale       !=  0), """There is no point to run "OldAnalyze" with "Greyscale" enabled.""")
 
 
     # Terminador de cucarachas #
@@ -1832,7 +1849,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                 inRGB24.AnalyzeMethods(Analyze, blankwht=blankwht, FrB=FrB, FrW=FrW, FrS=FrS, frx=frx, FramesLog=LogoID)
                 last.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32
             } else if(Analyze == 2) {
-                inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
+                inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Greyscale=1)
                 last.ConvertToY8.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32(matrix=matrixID)
             } else if(Analyze == 3) {
                 inYV12.ConvertToY8.Analyzelogo(aMerge).Trim(0,-1).ConvertToRGB32(matrix=matrixID)
@@ -1878,19 +1895,28 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                         inYV12
                     }
                 } else {
-                    inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID)
+                    inYV12.AnalyzeMethods(Analyze, mask=BasemaskP, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Greyscale=Greyscale)
                 }
                 YYY = last.ConvertToY8
-                UUU = last.UToY8
-                VVV = last.VToY8
-                FFF = last
-                YYYm   = YYY.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
-                ScanY  = StackVertical(YYYm,Imgmask.ConvertToY8(Matrix="PC.601"))
-                FFFm   = FFF.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
-                CCCm   = FFFm.crop(0,0,0,locH)
-                uvA    = FFFm.crop(0,locH,0,0).ConvertToY8.Spline36Resize(LocW/2, locH/2)
-                ScanU  = StackVertical(CCCm.UToY8, uvA)
-                ScanV  = StackVertical(CCCm.VToY8, uvA)
+                if(OldAnalyze == 0) {
+                    FFF   = last
+                    YYYm  = YYY.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
+                    ScanY = StackVertical(YYYm,Imgmask.ConvertToY8(Matrix="PC.601"))
+                    FFFm  = (Greyscale == 0) ? FFF.AnalyzeLogo(mask=BasemaskY).Trim(0,-1) : StackVertical(BlankClip(YYY, Color_yuv=$808080, pixel_type="YV12", length=1), BlankClip(YYY, Color_yuv=$000000, pixel_type="YV12", length=1))
+                    CCCm  = FFFm.crop(0,0,0,locH)
+                    uvA   = FFFm.crop(0,locH,0,0).ConvertToY8.Spline36Resize(LocW/2, locH/2)
+                    ScanU = StackVertical(CCCm.UToY8, uvA)
+                    ScanV = StackVertical(CCCm.VToY8, uvA)
+                } else {
+                    UUU   = last.UToY8
+                    VVV   = last.VToY8
+                    YYY.AnalyzeLogo(mask=BasemaskY).Trim(0,-1)
+                    ScanY = StackVertical(last,Imgmask.ConvertToY8(Matrix="PC.601"))
+                    UUU.AnalyzeLogo(mask=BasemaskUV).Trim(0,-1)
+                    ScanU = last
+                    VVV.AnalyzeLogo(mask=BasemaskUV).Trim(0,-1)
+                    ScanV = last
+                }
                 ScanUV = StackVertical(ScanU,ScanV,BlankClip(ScanV))
                 StackHorizontal(ScanY,ScanUV)
                 ImageWriter(LogoID +"%.0d.ebmp",0,1,"ebmp").RT_YankChain(n=0)
@@ -2123,8 +2149,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             inYV12U     = inYV12.UToY8
             inYV12V     = inYV12.VToY8
             OutY        = inYV12Y.DeblendLogo(LogoColorY, LogoAlphaY)
-            OutU        = inYV12U.DeblendLogo(LogoColorU, LogoAlphaU)
-            OutV        = inYV12V.DeblendLogo(LogoColorV, LogoAlphaV)
+            OutU        = (Greyscale == 0) ? inYV12U.DeblendLogo(LogoColorU, LogoAlphaU) : inYV12U
+            OutV        = (Greyscale == 0) ? inYV12V.DeblendLogo(LogoColorV, LogoAlphaV) : inYV12V
             LogoDeblPre = CombinePlanes(OutY, OutU, OutV, planes="YUV", source_planes="YYY", pixel_type="YV12")
         } else {
             if(deep != 1) {
@@ -2146,24 +2172,32 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             opt2_Uc  = opt2_cb.UtoY8
             opt2_Vc  = opt2_cb.VtoY8
 
-            ooo1 = opt2_cb.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
-            ooo2 = opt2_cb.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
-            ooo3 = inYV12 .InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
-            ooo4 = inYV12 .InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
+            ooo1 = (Greyscale == 1) ? opt2_cb.ExtractY.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 2).ConvertToYV12 : opt2_cb.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
+            ooo2 = (Greyscale == 1) ? opt2_cb.ExtractY.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 6).ConvertToYV12 : opt2_cb.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
+            ooo3 = (Greyscale == 1) ? inYV12 .ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8).ConvertToYV12 : inYV12 .InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
+            ooo4 = (Greyscale == 1) ? inYV12 .ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16).ConvertToYV12 : inYV12 .InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
 
-            loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
-            loPr2 =                        ConditionalFilter(inYV12, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
-            LogoInpaPre =                  ConditionalFilter(inYV12, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+            if(Greyscale == 1) {
+                loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60", args="opt2_Yc,opt2_lm")
+                loPr2 =                        ConditionalFilter(inYV12, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40", args="opt2_Yc,opt2_lm")
+                LogoInpaPre =                  ConditionalFilter(inYV12, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15", args="opt2_Yc,opt2_lm")
+            } else {
+                loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+                loPr2 =                        ConditionalFilter(inYV12, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+                LogoInpaPre =                  ConditionalFilter(inYV12, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+            }
 
-        } else if(Interp > 0){
-            LogoInpaPre = (WholeDeblend == 1 && intspd == 1 || interpm == -1 && intspd == 1) ? LogoDeblPre.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius=2) :
-            \             (WholeDeblend == 1 && intspd == 2 || interpm == -1 && intspd == 2) ? LogoDeblPre.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius=6) :
-            \             (WholeDeblend == 1 && intspd == 3 || interpm == -1 && intspd == 3) ? LogoDeblPre.InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur=4,radius=8) :
-            \             (WholeDeblend == 1 && intspd == 4 || interpm == -1 && intspd == 4) ? LogoDeblPre.InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16) :
-            \             (                                                     intspd == 1) ? inYV12     .InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius=2) :
-            \             (                                                     intspd == 2) ? inYV12     .InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius=6) :
-            \             (                                                     intspd == 3) ? inYV12     .InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur=4,radius=8) :
-            \             (                                                     intspd == 4) ? inYV12     .InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16) : nop
+        } else if(Interp > 0) {
+            inin1   = (WholeDeblend == 1 || interpm == -1) ? LogoDeblPre : inYV12
+
+            LogoInpaPre = (Greyscale == 1 && intspd == 1) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 2).ConvertToYV12 :
+            \             (Greyscale == 1 && intspd == 2) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 6).ConvertToYV12 :
+            \             (Greyscale == 1 && intspd == 3) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur=4,radius= 8).ConvertToYV12 :
+            \             (Greyscale == 1 && intspd == 4) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16).ConvertToYV12 :
+            \             (                  intspd == 1) ? inin1.         InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 2)               :
+            \             (                  intspd == 2) ? inin1.         InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 6)               :
+            \             (                  intspd == 3) ? inin1.         InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur=4,radius= 8)               :
+            \             (                  intspd == 4) ? inin1.         InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16)               : nop
         }
 
         if(Optimize == 2 && Interp != 0) {
@@ -2179,8 +2213,11 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
             oooo1 = LogoInpaPre.Overlay(LogoDeblPre, opacity=interp)
             oooo2 = LogoDeblPre
-
-            LogoDeblend = ConditionalFilter(inYV12, oooo1, oooo2, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30 && opt3_Uc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30 && opt3_Vc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30", args="opt3_Yc,opt3_Uc,opt3_Vc,opt3_lm,opt3_lmc")
+            if(Greyscale == 1) {
+                LogoDeblend = ConditionalFilter(inYV12, oooo1, oooo2, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30", args="opt3_Yc,opt3_lm")
+            } else {
+                LogoDeblend = ConditionalFilter(inYV12, oooo1, oooo2, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30 && opt3_Uc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30 && opt3_Vc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30", args="opt3_Yc,opt3_Uc,opt3_Vc,opt3_lm,opt3_lmc")
+            }
 
         } else {
             LogoDeblend = (interp != 0) ? LogoInpaPre.Overlay(LogoDeblPre, opacity=interp) :
@@ -2325,16 +2362,20 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
     LogoBoth    = (automask == 0 && mode != "inpaint" && Show < 3) ? eval("""
-                  LogoBoth    = (DynMask != 0) ? LogoDeblend.InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
-                  \                              LogoDeblend.InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
+                  LogoBoth = (Greyscale == 1 && DynMask != 0) ? LogoDeblend.ExtractY.InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
+                  \          (                  DynMask != 0) ? LogoDeblend.         InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+                  \          (Greyscale == 1                ) ? LogoDeblend.ExtractY.InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
+                  \                                             LogoDeblend.         InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
                   return LogoBoth """) : nop
 
 
     # Inpaint:
     if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize == 0) {
 
-        LogoInpaint = (DynMask != 0) ? inYV12.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
-        \                              inYV12.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
+        LogoInpaint = (Greyscale == 1 && DynMask != 0) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
+        \             (                  DynMask != 0) ? inYV12.         ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+        \             (Greyscale == 1                ) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
+        \                                                inYV12.         ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
 
     } else if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize > 0) {
 
@@ -2348,18 +2389,26 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
         opt_Uc  = opt_cb.UtoY8
         opt_Vc  = opt_cb.VtoY8
 
-        oo1 = opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
-        oo2 = opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 4)
-        oo3 = opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
-        oo4 = inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
-        oo5 = inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
-        oo6 = inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur=12,radius=16)
+        oo1 = (Greyscale == 1) ? opt_cb.ExtractY.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2).ConvertToYV12 : opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
+        oo2 = (Greyscale == 1) ? opt_cb.ExtractY.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 4).ConvertToYV12 : opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 4)
+        oo3 = (Greyscale == 1) ? opt_cb.ExtractY.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6).ConvertToYV12 : opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
+        oo4 = (Greyscale == 1) ? inYV12.ExtractY.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8).ConvertToYV12 : inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
+        oo5 = (Greyscale == 1) ? inYV12.ExtractY.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16).ConvertToYV12 : inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
+        oo6 = (Greyscale == 1) ? inYV12.ExtractY.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur=12,radius=16).ConvertToYV12 : inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur=12,radius=16)
 
-        loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-        loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-        loIn3 =                       ConditionalFilter(inYV12, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-        loIn2 =                       ConditionalFilter(inYV12, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-        LogoInpaint  =                ConditionalFilter(inYV12, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+        if(Greyscale == 1) {
+            loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45", args="opt_Yc,opt_lm")
+            loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35", args="opt_Yc,opt_lm")
+            loIn3 =                       ConditionalFilter(inYV12, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20", args="opt_Yc,opt_lm")
+            loIn2 =                       ConditionalFilter(inYV12, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10", args="opt_Yc,opt_lm")
+            LogoInpaint  =                ConditionalFilter(inYV12, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6", args="opt_Yc,opt_lm")
+        } else {
+            loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn3 =                       ConditionalFilter(inYV12, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn2 =                       ConditionalFilter(inYV12, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            LogoInpaint  =                ConditionalFilter(inYV12, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+        }
     }
 
 
@@ -2376,32 +2425,35 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     # EdgePP:
     delogopp2   = (automask == 0 && Show != 3 && Show != 4 && Show < 6) ? eval("""
-                  delogopp2 =  (edgePP == 1 ) ? delogo.InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=2 ) :
-                  \            (edgePP == 2 ) ? delogo.InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=6 ) :
-                  \            (edgePP == 3 ) ? delogo.InpaintLogo(EdgeMask, sharpness=45  ,preBlur=6.5,postBlur=4,radius=8 ) :
-                  \                             delogo
+                  delogopp2 =  (Greyscale == 1 && edgePP == 1 ) ? delogo.ExtractY.InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=2 ).ConvertToYV12 :
+                  \            (Greyscale == 1 && edgePP == 2 ) ? delogo.ExtractY.InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=6 ).ConvertToYV12 :
+                  \            (Greyscale == 1 && edgePP == 3 ) ? delogo.ExtractY.InpaintLogo(EdgeMask, sharpness=45  ,preBlur=6.5,postBlur=4,radius=8 ).ConvertToYV12 :
+                  \            (                  edgePP == 1 ) ? delogo.         InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=2 ) :
+                  \            (                  edgePP == 2 ) ? delogo.         InpaintLogo(EdgeMask, sharpness= 1.5,preblur=0  ,postblur=0,radius=6 ) :
+                  \            (                  edgePP == 3 ) ? delogo.         InpaintLogo(EdgeMask, sharpness=45  ,preBlur=6.5,postBlur=4,radius=8 ) :
+                  \                                               delogo
                   return delogopp2  """) : nop
 
     # dPP/oPP:
     delogopp3   = (automask == 0 && Show < 3) ? eval("""
-                  delogopp3 = (mode == "inpaint"                                 ) ? inYV12.Overlay(delogo   .ppFX(opp), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
-                  \           (mode != "inpaint" && dPP != 0 && WholeDeblend == 0) ? inYV12.Overlay(delogopp2.ppFX(dpp), Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
-                  \           (dPPm != 0         && dPP == 0 && WholeDeblend == 0) ? inYV12.Overlay(delogopp2,           Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
-                  \           (dPPm == 0         && dPP == 0 && WholeDeblend == 0) ? inYV12.Overlay(delogopp2,           Mask=Basemask.  ConvertToY8(matrix="PC.709")) :
-                  \           (mode != "inpaint" && dPP != 0 && WholeDeblend == 1) ? delogopp2.Overlay(delogopp2.ppFX(dpp), Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
+                  delogopp3 = (mode == "inpaint"                                 ) ? inYV12.   Overlay(delogo   .ppFX(opp,greyscale), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
+                  \           (mode != "inpaint" && dPP != 0 && WholeDeblend == 0) ? inYV12.   Overlay(delogopp2.ppFX(dpp,greyscale), Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
+                  \           (dPPm != 0         && dPP == 0 && WholeDeblend == 0) ? inYV12.   Overlay(delogopp2,                     Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
+                  \           (dPPm == 0         && dPP == 0 && WholeDeblend == 0) ? inYV12.   Overlay(delogopp2,                     Mask=Basemask.  ConvertToY8(matrix="PC.709")) :
+                  \           (mode != "inpaint" && dPP != 0 && WholeDeblend == 1) ? delogopp2.Overlay(delogopp2.ppFX(dpp,greyscale), Mask=DeblendMpp.ConvertToY8(matrix="PC.709")) :
                   \           (dPPm != 0         && dPP == 0 && WholeDeblend == 1) ? delogopp2 :
                   \           (dPPm == 0         && dPP == 0 && WholeDeblend == 1) ? delogopp2 : nop
                   return delogopp3  """) : nop
 
     # iTune PP:
     delogopp4   = (automask == 0 && Show < 3) ? eval("""
-                  delogopp4 = (mode == "deblend" && InterpM == -1 && diPP != 0) ? delogopp3.Overlay(delogopp3.ppFX(dipp), Mask=iTunepp.ConvertToY8(matrix="PC.709")) :
+                  delogopp4 = (mode == "deblend" && InterpM == -1 && diPP != 0) ? delogopp3.Overlay(delogopp3.ppFX(dipp,greyscale), Mask=iTunepp.ConvertToY8(matrix="PC.709")) :
                   \                                                               delogopp3
                   return delogopp4 """) : nop
 
     # Both/oTune PP:
     delogopp5   = (automask == 0 && Show < 3) ? eval("""
-                  delogopp5 = (mode == "both" && oPP != 0) ? delogopp4.Overlay(delogopp4.ppFX(opp), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
+                  delogopp5 = (mode == "both" && oPP != 0) ? delogopp4.Overlay(delogopp4.ppFX(opp,greyscale), Mask=InpaintMpp.ConvertToY8(matrix="PC.709")) :
                   \                                          delogopp4
                   return delogopp5 """) : nop
 
@@ -2560,8 +2612,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     } else if(show == 7) { # "Show" 7
 
-        (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=3) :
-      \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=3) :
+        (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=3, Greyscale=Greyscale) :
+      \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=3, Greyscale=Greyscale) :
       \ (Analyze == -1) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=3) :
       \ (Analyze == -2) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=3) : nop
         w = int(4*width(last))
@@ -2586,8 +2638,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     } else if(show == 8) { # "Show" 8
 
-        (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=2) :
-      \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=2) :
+        (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=2, Greyscale=Greyscale) :
+      \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=2, Greyscale=Greyscale) :
       \ (Analyze == -1) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=2) :
       \ (Analyze == -2) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=2) : nop
         w = int(4*width(last))
@@ -2612,8 +2664,8 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     } else if(show == 9) { # "Show" 9
 
-        (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=1) :
-      \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=1) :
+        (Analyze ==  1) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=1, Greyscale=Greyscale) :
+      \ (Analyze ==  2) ? inYV12 .AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=1, Greyscale=Greyscale) :
       \ (Analyze == -1) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, mask=BasemaskP,        FramesLog=LogoID, Show=1) :
       \ (Analyze == -2) ? inRGB24.AnalyzeMethods(Analyze, AnalyzeTh=AnalyzeTh, NoBorderAt=NoBorderAt, FramesLog=LogoID, Show=1) : nop
 
@@ -2654,13 +2706,14 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
         if(Loc == "0,0,0,0" || Loc == "0,0,-0,-0" || Loc == "0, 0, 0, 0" || Loc == "0, 0, -0, -0") {
             if(ebmpIn > 0 && x != ebmpW && y != ebmpH) {
-                clp.Overlay(helper,x=a,y=b)
+                finalout = clp.Overlay(helper,x=a,y=b)
             } else {
-                helper
+                finalout = helper
             }
         } else {
-            clp.Overlay(helper,x=a,y=b)
+            finalout = clp.Overlay(helper,x=a,y=b)
         }
+        return (Greyscale == 1) ? finalout.Greyscale() : finalout
     }
 }
 
@@ -2722,7 +2775,7 @@ Function ID_VFX2(clip mask, string Analyze5DB) {
 }
 
 
-function AnalyzeMethods(clip clp, int Analyze, val "blankwht", int "FrB", int "FrW", int "FrS", int "frx", val "mask", int "AnalyzeTh", string "NoBorderAt", string "FramesLog", int "Show") {
+function AnalyzeMethods(clip clp, int Analyze, val "blankwht", int "FrB", int "FrW", int "FrS", int "frx", val "mask", int "AnalyzeTh", string "NoBorderAt", string "FramesLog", int "Show", int "Greyscale") {
     # Analyze -3 & -4 params
     blankwht   = default (blankwht   , "")
     FrB        = default (FrB        ,  0)
@@ -2736,6 +2789,7 @@ function AnalyzeMethods(clip clp, int Analyze, val "blankwht", int "FrB", int "F
     NoBorderAt = default (NoBorderAt , "none")
     Show       = default (Show       ,  0)
     FramesLog  = default (FramesLog  , "")
+    Greyscale  = default (Greyscale  ,  0)
 
     Assert (!(AnalyzeTh      < 1 || AnalyzeTh      > 255), """"AnalyzeTh" value must be between 1 and 255.""")
     Assert (!(Show           < 0 || Show           >   3), """"Show" value must be between 0 and 3.""")
@@ -2843,8 +2897,10 @@ function AnalyzeMethods(clip clp, int Analyze, val "blankwht", int "FrB", int "F
         clp5
         fc  = FrameCount()
         res = BlankClip(clp, length=0)
-        if(Analyze > 0) {
+        if(Analyze > 0 && Greyscale == 0) {
             condition = "YPlaneMinMaxDifference >" +String(Th)+ " || UPlaneMinMaxDifference >" +String(Round(Th/2))+ " || VPlaneMinMaxDifference >" +String(Round(Th/2))
+        } else if(Analyze > 0){
+            condition = "YPlaneMinMaxDifference >" +String(Th)
         } else {
             condition = "RPlaneMinMaxDifference >" +String(Th)+ " || GPlaneMinMaxDifference >" +String(Th)+ " || BPlaneMinMaxDifference >" +String(Th)
         }
@@ -3227,9 +3283,12 @@ function DynRePassFX(clip clp, int "Dyn3Seq", int "ClpBlend", int "KillNoise") {
 ##================================================================================================##
 
 
-function ppFX(clip clp, int "x") {
+function ppFX(clip clp, int "x", int "grey") {
+    grey        = default (grey, 0)
     x           = default (x, 0)
     mode        = abs(x)
+
+    clp = (grey == 1 && mode != 0) ? clp.ExtractY : clp
 
     pp          = (mode == 1) ? clp.Blur(0.3 ) :
     \             (mode == 2) ? clp.Blur(0.7 ) :
@@ -3251,7 +3310,9 @@ function ppFX(clip clp, int "x") {
     \                              .Blur(1.58).Blur(1.58).Blur(1.58).Blur(1.58).Blur(1.58).Blur(1.58)
     \                              .Blur(1.58).Blur(1.58).Blur(1.58).Blur(1.58).Blur(1.58).Blur(1.58) : clp
 
-    return (x < -4) ? pp.FFT3DFilter(sigma=8, plane=4) : (x < 0) ? pp.FFT3DFilter(sigma=4, plane=4) : pp
+    out = (x < -4) ? pp.Neo_FFT3D(sigma=8, y=3, u=3, v=3) : (x < 0) ? pp.Neo_FFT3D(sigma=4, y=3, u=3, v=3) : pp
+
+    return (grey == 1 && mode != 0) ? out.ConvertToYV12 : out
 }
 
 
