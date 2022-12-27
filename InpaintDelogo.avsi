@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.4                                                                                   #
+#   Version: 3.5                                                                                   #
 ##================================================================================================##
 
 
@@ -30,6 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 3.5  : 2022/12/27.  Fixed: Dynamic mask inpainting was broken since v3.4.
 # Version 3.4  : 2022/11/24.  New feature: "Greyscale" parameter, affects positive "Analyze", "Deblend", "Inpaint"...
 #                                          Up to ~60% speed-up when enabled.
 #                                          Prevents chroma changes on the greyscale videos by deblend [side effect of "3.1" fix].
@@ -2373,7 +2374,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize == 0) {
 
         LogoInpaint = (Greyscale == 1 && DynMask != 0) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
-        \             (                  DynMask != 0) ? inYV12.         ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+        \             (                  DynMask != 0) ? inYV12.         ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
         \             (Greyscale == 1                ) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
         \                                                inYV12.         ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
 
