@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.5                                                                                   #
+#   Version: 3.6                                                                                   #
 ##================================================================================================##
 
 
@@ -30,6 +30,9 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 3.6  : 2023/01/12.  New conditional: Auto max "Interp" for frames where logo is in ~solid background.
+#                             "Optimize" is split to "Optimize1" & "Optimize2".
+#                             Burnin version number into ebmp ["Ver-", positive analyze only].
 # Version 3.5  : 2022/12/27.  Fixed: Dynamic mask inpainting was broken since v3.4.
 # Version 3.4  : 2022/11/24.  New feature: "Greyscale" parameter, affects positive "Analyze", "Deblend", "Inpaint"...
 #                                          Up to ~60% speed-up when enabled.
@@ -404,8 +407,9 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 
 
 # Int "Interp"      :  Interpolation amount to reduce remnants/artifacts of the logo after deblend.
-#                     Basically, a compromise between deblend artifacts and interpolation artifacts.
-#                     Interpolation artifacts are most visible when logo is crossing high contrast areas.
+#                     Higher - more information is merged from the inpainted clip to the deblended clip.
+#                     Basically, a compromise between deblend artifacts and inpaint artifacts.
+#                     Interp artifacts are most visible when logo is crossing high contrast areas.
 #                     (0 - Disabled. Max - 4). (default: 2).
 
 
@@ -463,11 +467,16 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     3 - Inflate by 3 pixels.
 
 
-# Int "Optimize"    :  Enables conditional optimizations (from 0 to 2; default: 2).
+# Int "Optimize1"   :  Enables conditional inpainting optimizations (from 0 to 1; default: 1).
 #                     Not made to work with the dynamic masks (likely there wouldn't be a lot of benefit).
 #                     1 -  Optimizations for the slow "Turbo" & "IntSpd" presets [up to ~1000% speed-up].
 #                         Enables auto switching to the faster presets on the frames where logo is in ~solid background.
-#                     2 -  Enables additional optimization: Turns off "Interp" for frames where logo is in non-solid background.
+
+
+# Int "Optimize2"   :  Enables conditional optimizations for "Interp" (from 0 to 3; default: 3).
+#                     1 -  Turns off "Interp" for frames where logo is in the background with higher contrast.
+#                     2 -  Switch to max "Interp" for frames where logo is in ~solid background.
+#                     3 -  Both 1 & 2 are enabled.
 
 
                  #===================#
@@ -1147,6 +1156,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ diPP=-5, diPPm=3,
 \ EdgePP=0, EdgePos=0, EdgeWide=1,
 \ Turbo=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
+\ Optimize1=1, Optimize2=3,
 \ DynMask=0, DynTune=200, DynTuneInf=0, DynInflate=0, maskPatch="",
 \ DynColor=0, DynColorTol=10, DynColorInf=1,
 \ DynTEdge=0, DynTEdgeThY=20, DynTEdgeInf=2,
@@ -1192,7 +1202,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "KillBlobs", int "preBlobs", int "rePass",
 \                        int "DynMask3H", int "ModeSH", int "TuneH1", int "TuneH2", int "TuneH3", int "rePassH", int "KillNoiseH",
 \                        int "DynMask4H", int "DynMaskUp", int "DynLocUp",
-\                        int "Extract", val "ReExtract", string "FourCC", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma",
+\                        int "Extract", int "ReExtract", string "FourCC", String "ImgDir", Float "CorrTh", Int "SubTune", Int "SubMinDur", Int "SubSusDur", Float "SubMinLuma", Float "SubSusLuma",
 \                        String "ImgType", Int "ImgInflate", Int "ImgInvert", Int "ImgSize", Int "RawAvr", Int "DetWinPercW", Int "DetWinPercH", Float "DetWinHoPos",
 \                        int "AnalyzeTh", String "NoBorderAt",
 \                        val "DynColor", int "DynColorTol", int "DynColorInf",
@@ -1205,7 +1215,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "YAlphaSolidIns", int "UAlphaSolidIns", int "VAlphaSolidIns",
 \                        int "YOffsetIns", int "YOffsetOuts", int "UVOffsetIns", int "UVOffsetOuts", int "ShiftMasksVe", int "ShiftMasksHo",
 \                        val "YAlphaExternal", int "WholeDeblend", int "TriggerDynamic", int "DumpMasks",
-\                        val "Optimize", int "Greyscale", int "OldAnalyze")
+\                        int "Optimize1",int "Optimize2", int "Greyscale", int "OldAnalyze")
 
 
 {
@@ -1352,12 +1362,13 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     TriggerDynamic   = Default (TriggerDynamic  ,  0)    Assert (!(TriggerDynamic   <   0 || TriggerDynamic  >   1), """"TriggerDynamic" value must be between 0 and 1.""")
     DumpMasks        = Default (DumpMasks       ,  0)    Assert (!(DumpMasks        <   0 || DumpMasks       >   2), """"DumpMasks" value must be between 0 and 2.""")
 
-    Optimize         = Default(Optimize         , (DynMask > 0 || Turbo > 0) ? 0 : 2)
-                                                         Assert (!(Optimize         <   0 || Optimize        >   2), """"Optimize" value must be between 0 and 2.""")
-                                                         Assert (!(Optimize         >   0 && Turbo           >   0), """"Optimize" can't be used with positive "Turbo".""")
-                                                         Assert (!(Optimize         >   0 && DynMask        !=   0), """"Optimize" can't be used with "DynMask".""")
-                                                         if(Optimize > 0) { Assert (!(sharpness != 45 || preBlur != 6.5 || postBlur != 4 || radius != 8), """"Optimize" can't be used with custom inpainting settings.""") }
+    Optimize1        = Default(Optimize1        , (DynMask > 0 || Turbo > 0) ? 0 : 1)
+                                                         Assert (!(Optimize1        <   0 || Optimize1       >   1), """"Optimize1" value must be between 0 and 1.""")
+                                                         Assert (!(Optimize1        >   0 && Turbo           >   0), """"Optimize1" can't be used with positive "Turbo".""")
+                                                         Assert (!(Optimize1        >   0 && DynMask        !=   0), """"Optimize1" can't be used with "DynMask".""")
+                                                         if(Optimize1 > 0) { Assert (!(sharpness != 45 || preBlur != 6.5 || postBlur != 4 || radius != 8), """"Optimize1" can't be used with custom inpainting settings.""") }
 
+    Optimize2        = Default (Optimize2       ,  3)    Assert (!(Optimize2        <   0 || Optimize2       >   3), """"Optimize2" value must be between 0 and 3.""")
     Greyscale        = Default (Greyscale       ,  0)    Assert (!(Greyscale        <   0 || Greyscale       >   2), """"Greyscale" value must be between 0 and 2.""")
     OldAnalyze       = Default (OldAnalyze      ,  0)    Assert (!(OldAnalyze       <   0 || OldAnalyze      >   1), """"OldAnalyze" value must be between 0 and 1.""")
                                                          Assert (!(OldAnalyze      ==   1 && Greyscale       !=  0), """There is no point to run "OldAnalyze" with "Greyscale" enabled.""")
@@ -1918,7 +1929,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
                     VVV.AnalyzeLogo(mask=BasemaskUV).Trim(0,-1)
                     ScanV = last
                 }
-                ScanUV = StackVertical(ScanU,ScanV,BlankClip(ScanV))
+                ScanUV = StackVertical(ScanU,ScanV,BlankClip(ScanV).Subtitle("Ver-3.6",align=5,size=12))
                 StackHorizontal(ScanY,ScanUV)
                 ImageWriter(LogoID +"%.0d.ebmp",0,1,"ebmp").RT_YankChain(n=0)
                 Logo = last
@@ -2074,7 +2085,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             if(DumpMasks > 0) {
                 ssCyuv = StackHorizontal(LogoColorY, StackVertical(LogoColorU, LogoAlphaU))
                 ssAyuv = StackHorizontal(LogoAlphaY, StackVertical(LogoColorV, LogoAlphaV))
-                ssBBB  = StackHorizontal(Imgmask.ConvertToY8(Matrix="PC.601"), BlankClip(StackVertical(LogoColorV, LogoAlphaV)))
+                ssBBB  = StackHorizontal(Imgmask.ConvertToY8(Matrix="PC.601"), BlankClip(StackVertical(LogoColorV, LogoAlphaV)).Subtitle("Ver-3.6",align=5,size=12))
                 ssCAss = StackVertical(ssCyuv, ssAyuv, ssBBB).ImageWriter(LogoID +"%.0d_dump.ebmp",0,1,"ebmp")
                 ssCAss.RT_YankChain(n=0)
             }
@@ -2161,7 +2172,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             }
         }
 
-        if(Interp > 0 && IntSpd > 2 && Optimize > 0) {
+        if(Interp > 0 && IntSpd > 2 && Optimize1 > 0) {
             opt2_v   = (WholeDeblend == 1 || interpm == -1) ? LogoDeblPre : inYV12
             opt2_bm  = InterpMask.ConvertToY8(matrix="PC.709").MTballoon2PX(2)
             opt2_m   = opt2_bm.MTballoon2PX(6).mt_makediff(opt2_bm).mt_binarize()
@@ -2201,7 +2212,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             \             (                  intspd == 4) ? inin1.         InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16)               : nop
         }
 
-        if(Optimize == 2 && Interp != 0) {
+        if(Optimize2 > 0 && Interp != 0) {
             opt3_bm  = Imgmask.ConvertToY8(matrix="PC.709").MTballoon2PX(3)
             opt3_m   = opt3_bm.MTballoon2PX(6).mt_makediff(opt3_bm).mt_binarize()
             opt3_mc  = opt3_m.PointResize(LocW/2, LocH/2)
@@ -2212,12 +2223,17 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             opt3_Uc  = opt3_cb.UtoY8
             opt3_Vc  = opt3_cb.VtoY8
 
+            oooo0 = LogoInpaPre.Overlay(LogoDeblPre, opacity=  0.40)
             oooo1 = LogoInpaPre.Overlay(LogoDeblPre, opacity=interp)
             oooo2 = LogoDeblPre
+
             if(Greyscale == 1) {
-                LogoDeblend = ConditionalFilter(inYV12, oooo1, oooo2, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30", args="opt3_Yc,opt3_lm")
+                loDePr1     = (Optimize2 == 2) ? oooo1   : ConditionalFilter(inYV12, oooo1, oooo2,   "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30", args="opt3_Yc,opt3_lm")
+                LogoDeblend = (Optimize2 == 1) ? loDePr1 : ConditionalFilter(inYV12, oooo0, loDePr1, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 15", args="opt3_Yc,opt3_lm")
+
             } else {
-                LogoDeblend = ConditionalFilter(inYV12, oooo1, oooo2, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30 && opt3_Uc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30 && opt3_Vc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30", args="opt3_Yc,opt3_Uc,opt3_Vc,opt3_lm,opt3_lmc")
+                loDePr1     = (Optimize2 == 2) ? oooo1   : ConditionalFilter(inYV12, oooo1, oooo2,   "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 30 && opt3_Uc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30 && opt3_Vc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 30", args="opt3_Yc,opt3_Uc,opt3_Vc,opt3_lm,opt3_lmc")
+                LogoDeblend = (Optimize2 == 1) ? loDePr1 : ConditionalFilter(inYV12, oooo0, loDePr1, "opt3_Yc.RT_YPlaneMinMaxDifference(mask=opt3_lm) < 15 && opt3_Uc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 15 && opt3_Vc.RT_YPlaneMinMaxDifference(mask=opt3_lmc) < 15", args="opt3_Yc,opt3_Uc,opt3_Vc,opt3_lm,opt3_lmc")
             }
 
         } else {
@@ -2371,14 +2387,14 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
 
     # Inpaint:
-    if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize == 0) {
+    if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize1 == 0) {
 
         LogoInpaint = (Greyscale == 1 && DynMask != 0) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
         \             (                  DynMask != 0) ? inYV12.         ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
         \             (Greyscale == 1                ) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
         \                                                inYV12.         ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
 
-    } else if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize > 0) {
+    } else if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize1 > 0) {
 
         opt_bm  = Imgmask.ConvertToY8(matrix="PC.709").MTballoon2PX(3)
         opt_m   = opt_bm.MTballoon2PX(6).mt_makediff(opt_bm).mt_binarize()
