@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.7                                                                                   #
+#   Version: 3.8-test                                                                              #
 ##================================================================================================##
 
 
@@ -30,6 +30,8 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
+# Version 3.8 test            Test new "Turbo2" arg.
+#
 # Version 3.7  : 2023/08/11.  Fixed: Broken "YColorSolidIns" arg [code typo].
 #                             Fixed: Bug with "isHD" variable.
 #                             Added 'Mask' path check before running 'Automask'.
@@ -888,6 +890,10 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                    3 - Fastest. Low quality inpainting. Less suitable for higher than SD resolutions.
 
 
+# Int "Turbo2"      : Pre-downsampled inpainting, sets an resolution divisor for Loc area and masks. (from 1 to 32; default: 1).
+#                     Meant to speedup inpainting, and improve delogo with the big masks/resolutions.
+
+
 # Int "KillShape"   :  Reduces sponginess of the base/dynamic mask when preserves dimensions of the shape.
 #                     Experimental parameter meant for positive "Turbo", to make inpainted area less "alive".
 #                     Will kill any hole up to 6 pixels in diameter.
@@ -1167,7 +1173,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ oPP=-5, oPPm=3,
 \ diPP=-5, diPPm=3,
 \ EdgePP=0, EdgePos=0, EdgeWide=1,
-\ Turbo=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
+\ Turbo=0, Turbo2=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
 \ Optimize1=1, Optimize2=3,
 \ DynMask=0, DynTune=200, DynTuneInf=0, DynInflate=0, maskPatch="",
 \ DynColor=0, DynColorTol=10, DynColorInf=1,
@@ -1206,7 +1212,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 \                        int "oTune", int "ReAnalyze", int "oPP", int "oPPm", int "dPPm", int "dPP",
 \                        float "Radius", float "Sharpness", float "PreBlur", float"PostBlur",
 \                        int "GrainPP", int "Automask", int "aMix", int "mShow", int "Show",
-\                        int "Deep", int "prePP", int "KillShape", int "Turbo",
+\                        int "Deep", int "prePP", int "KillShape", int "Turbo", int "Turbo2",
 \                        int "iTune", int "iTinflate", int "oTinflate", int "diPPm", int "diPP",
 \                        int "EdgePP", int"EdgePos", int"EdgeWide", int "IntSpd", int"DynMask",
 \                        val "DynTune", int "DynInflate", int "KillNoise", string "maskPatch",
@@ -1387,6 +1393,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     Greyscale        = Default (Greyscale       ,  0)    Assert (!(Greyscale        <   0 || Greyscale       >   2), """"Greyscale" value must be between 0 and 2.""")
     OldAnalyze       = Default (OldAnalyze      ,  0)    Assert (!(OldAnalyze       <   0 || OldAnalyze      >   1), """"OldAnalyze" value must be between 0 and 1.""")
                                                          Assert (!(OldAnalyze      ==   1 && Greyscale       !=  0), """There is no point to run "OldAnalyze" with "Greyscale" enabled.""")
+
+    Turbo2           = default (Turbo2          , 1 )    Assert (!(Turbo2           <   1 || Turbo2          >  32), """"Turbo2" value must be between 1 and 32.""")
+                                                         Assert (!(Turbo2           >   1 && Optimize1      !=   0), """"Turbo2" currently can't work with "Optimize1".""")
 
 
     # Terminador de cucarachas #
@@ -1758,6 +1767,12 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     clpLoc      = clp.Crop(a,b,c,d)
     locW        = clpLoc.width
     locH        = clpLoc.height
+    if (Turbo2 > 1) {
+        loTcW  = Round(locW / Turbo2)
+        loTcH  = Round(locH / Turbo2)
+        loTcW  = loTcW - (loTcW % 2)
+        loTcH  = loTcH - (loTcH % 2)
+    }
 
     blankblk    = BlankClip(clp,length=1,pixel_type="RGB32").Crop(a,b,c,d)
     blankred    = BlankClip(clp,color=$FF0000,length=1,pixel_type="RGB32").Crop(a,b,c,d)
@@ -2412,10 +2427,16 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     # Inpaint:
     if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize1 == 0) {
 
-        LogoInpaint = (Greyscale == 1 && DynMask != 0) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
-        \             (                  DynMask != 0) ? inYV12.         ppFX(prePP).InpaintLogo(DynamicMask, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
-        \             (Greyscale == 1                ) ? inYV12.ExtractY.ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
-        \                                                inYV12.         ppFX(prePP).InpaintLogo(OpaqueMask , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
+        inYV12T      = (Turbo2 > 1                ) ? inYV12     .BicubicResize(loTcW, loTcH) : inYV12
+        OpaqueMaskT  = (Turbo2 > 1                ) ? OpaqueMask .PointResize  (loTcW, loTcH) : OpaqueMask
+        DynamicMaskT = (Turbo2 > 1 && DynMask != 0) ? DynamicMask.PointResize  (loTcW, loTcH) : DynamicMask
+
+        LogoInpaint = (Greyscale == 1 && DynMask != 0) ? inYV12T.ExtractY.ppFX(prePP).InpaintLogo(DynamicMaskT, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
+        \             (                  DynMask != 0) ? inYV12T.         ppFX(prePP).InpaintLogo(DynamicMaskT, radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur) :
+        \             (Greyscale == 1                ) ? inYV12T.ExtractY.ppFX(prePP).InpaintLogo(OpaqueMaskT , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur).ConvertToYV12 :
+        \                                                inYV12T.         ppFX(prePP).InpaintLogo(OpaqueMaskT , radius=radius,sharpness=sharpness,preblur=preblur,postblur=postblur)
+
+        LogoInpaint = (Turbo2 > 1) ? LogoInpaint.BicubicResize(locW, locH) : LogoInpaint
 
     } else if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize1 > 0) {
 
