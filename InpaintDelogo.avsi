@@ -31,6 +31,12 @@
 
 
 # Version 3.8 test            Test new "Turbo2" arg.
+#                             WIP: "Turbo2" can work with "Optimize1".
+#                             Fixed: "integer divide by zero" error in AVSInpaint when "mask" is ebmp made by negative "Analyze".
+#
+#                             Self note: Why LogoBoth not restricted only to both?
+
+
 #
 # Version 3.7  : 2023/08/11.  Fixed: Broken "YColorSolidIns" arg [code typo].
 #                             Fixed: Bug with "isHD" variable.
@@ -478,6 +484,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 
 # Int "Optimize1"   :  Enables conditional inpainting optimizations (from 0 to 1; default: 1).
 #                     Not made to work with the dynamic masks (likely there wouldn't be a lot of benefit).
+#                     Note: Doesn't optimize for the opaque logo parts in "Both" mode.
 #                     1 -  Optimizations for the slow "Turbo" & "IntSpd" presets [up to ~1000% speed-up].
 #                         Enables auto switching to the faster presets on the frames where logo is in ~solid background.
 
@@ -503,7 +510,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                    1 - External dynamic mask, defined by "mask". Auto-adaptive.
 #
 #                    2 - Generation of the dynamic combo mask.
-#                        Mix of essential DynMask6/"DynTune" mask + optional DynMask5/"DynColor and DynMask7/"DynTEdge" masks (logic 'and').
+#                        Mix of essential DynMask6/"DynTune" mask + optional DynMask5/"DynColor" and DynMask7/"DynTEdge" masks (logic 'and').
 #
 #                    3 - Generation of the dynamic temporaly averaged combo mask [DynMask2 + temporal average].
 #                        Useful when Logo jumps location and stays there for some time (set by "Dyn3Seq").
@@ -572,6 +579,14 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 
 # Int "DynTEdgeInf"  :  Inflates "DynTEdge" mask. (from 0 to 8; default: 2).
 #=============================================================================================================
+
+
+# Int "DynLocUp"   :  Especially useful for SD videos and the small subtitles in HD videos.
+#                     Note: Experimental, may break things.
+#                     Note: Originaly was made as alternative to negative "DynMaskUp", now should work with all DynMask options.
+#                           Vs negative "DynMaskUp": ~50%-30% faster. Doesn't destroy slim characters [like hieroglyphs], but doesn't remove some noise.
+#                     Only to get a neat upsized subtitles mask on Show=4 output. (from 1 to 4; default: 1).
+#                     Loc resolution is multiplied by parameter.
 
 
 # String "maskPatch":  Full path to a patch image, a B/W picture in size of a "loc" area.
@@ -673,7 +688,11 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
                  #   DynMask3H>0: #
                  #================#
 
-# Int "DynMask3H"   :  Parameter for "DynMask=3". [Maybe better look at "DynMask=4" method]
+
+# NOTE:               Now this is probably deprecated by simpler "DynMask=4" method.
+
+
+# Int "DynMask3H"   :  Parameter for "DynMask=3".
 #                     If subs has dark full halo then it can be used to remove artifacts. Binarization threshold (from 0 to 200; default: 0 - Disabled).
 #                     This mask is used to refine a final "DynMask=3" mask using hysteresis.
 #                     Is using "Dyn3Seq"/"ClpBlend" settings (don't change).
@@ -738,12 +757,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                     Only to get a neat upsized subtitles mask on Show=4 output. (from -4 to 4; default: 0).
 #                     Resolution is multiplied by parameter (-1/0/1 = Disabled).
 #                     Positive: First set everything without this parameter as all filtering is done on a not-upsized mask, which is used to do hysteresis into the upsized mask.
-#                     Negative: Does filtering on the upsized mask (experimental, WIP).
-
-# Int "DynLocUp"   :  Experimental WIP parameter for tests, alternative to negative "DynMaskUp". Tested only with "DynMask=4", may work with other methods, may break things.
-#                     Vs negative "DynMaskUp": ~50%-30% faster. Doesn't destroy slim characters [like hieroglyphs], but doesn't remove some noise.
-#                     Only to get a neat upsized subtitles mask on Show=4 output. (from 1 to 4; default: 1).
-#                     Resolution is multiplied by parameter.
+#                     Negative: Does filtering on the upsized mask (experimental) [see alternative - "DynLocUp"].
 
 
                  #==================#
@@ -890,8 +904,9 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 #                    3 - Fastest. Low quality inpainting. Less suitable for higher than SD resolutions.
 
 
-# Int "Turbo2"      : Pre-downsampled inpainting, sets an resolution divisor for Loc area and masks. (from 1 to 32; default: 1).
+# Int "Turbo2"      : Pre-downsampled inpainting, sets an resolution divisor for Loc area and masks. (from 1 to 16; default: 1).
 #                     Meant to speedup inpainting, and improve delogo with the big masks/resolutions.
+#                     Note: Needs to have bigger borders around logo, like ~8 * Turbo2. [for automask/analysis runs keep borders as described at "Loc"]
 
 
 # Int "KillShape"   :  Reduces sponginess of the base/dynamic mask when preserves dimensions of the shape.
@@ -1173,7 +1188,7 @@ InpaintDelogo( mask="c:\test\mymask.bmp",
 \ oPP=-5, oPPm=3,
 \ diPP=-5, diPPm=3,
 \ EdgePP=0, EdgePos=0, EdgeWide=1,
-\ Turbo=0, Turbo2=0, prePP=0, KillShape=0, oTune=0, oTinflate=0,
+\ Turbo=0, Turbo2=1, prePP=0, KillShape=0, oTune=0, oTinflate=0,
 \ Optimize1=1, Optimize2=3,
 \ DynMask=0, DynTune=200, DynTuneInf=0, DynInflate=0, maskPatch="",
 \ DynColor=0, DynColorTol=10, DynColorInf=1,
@@ -1394,8 +1409,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     OldAnalyze       = Default (OldAnalyze      ,  0)    Assert (!(OldAnalyze       <   0 || OldAnalyze      >   1), """"OldAnalyze" value must be between 0 and 1.""")
                                                          Assert (!(OldAnalyze      ==   1 && Greyscale       !=  0), """There is no point to run "OldAnalyze" with "Greyscale" enabled.""")
 
-    Turbo2           = default (Turbo2          , 1 )    Assert (!(Turbo2           <   1 || Turbo2          >  32), """"Turbo2" value must be between 1 and 32.""")
-                                                         Assert (!(Turbo2           >   1 && Optimize1      !=   0), """"Turbo2" currently can't work with "Optimize1".""")
+    Turbo2           = default (Turbo2          , 1 )    Assert (!(Turbo2           <   1 || Turbo2          >  16), """"Turbo2" value must be between 1 and 16.""")
+                                                         Assert (!(Turbo2           >   1 && Turbo           <   0), """"Turbo2" use with negative "Turbo" doesn't make sense.""")
+                                                         Assert (!(Turbo2           >   1 && mode      ==   "both"), """"Turbo2" use with mode "Both" is not implemented.""")
 
 
     # Terminador de cucarachas #
@@ -2211,8 +2227,12 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
         }
 
         if(Interp > 0 && IntSpd > 2 && Optimize1 > 0) {
-            opt2_v   = (WholeDeblend == 1 || interpm == -1) ? LogoDeblPre : inYV12
-            opt2_bm  = InterpMask.ConvertToY8(matrix="PC.709").MTballoon2PX(2)
+
+            inYV12T     = (Turbo2 > 1 && WholeDeblend != 1 || Turbo2 > 1 && interpm != -1) ? inYV12    .BicubicResize(loTcW, loTcH) : inYV12
+            InterpMaskT = (Turbo2 > 1 && WholeDeblend != 1 || Turbo2 > 1 && interpm != -1) ? InterpMask.PointResize  (loTcW, loTcH) : InterpMask
+
+            opt2_v   = (WholeDeblend == 1 || interpm == -1) ? LogoDeblPre : inYV12T
+            opt2_bm  = InterpMaskT.ConvertToY8(matrix="PC.709").MTballoon2PX(2)
             opt2_m   = opt2_bm.MTballoon2PX(6).mt_makediff(opt2_bm).mt_binarize()
             opt2_mc  = opt2_m.PointResize(LocW/2, LocH/2)
             opt2_cb  = opt2_v.Blur(1.58)
@@ -2222,32 +2242,40 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             opt2_Uc  = opt2_cb.UtoY8
             opt2_Vc  = opt2_cb.VtoY8
 
-            ooo1 = (Greyscale == 1) ? opt2_cb.ExtractY.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 2).ConvertToYV12 : opt2_cb.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
-            ooo2 = (Greyscale == 1) ? opt2_cb.ExtractY.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 6).ConvertToYV12 : opt2_cb.InpaintLogo(opt2_bm   , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
-            ooo3 = (Greyscale == 1) ? inYV12 .ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8).ConvertToYV12 : inYV12 .InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
-            ooo4 = (Greyscale == 1) ? inYV12 .ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16).ConvertToYV12 : inYV12 .InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
+            ooo1 = (Greyscale == 1) ? opt2_cb.ExtractY.InpaintLogo(opt2_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2).ConvertToYV12 : opt2_cb.InpaintLogo(opt2_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
+            ooo2 = (Greyscale == 1) ? opt2_cb.ExtractY.InpaintLogo(opt2_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6).ConvertToYV12 : opt2_cb.InpaintLogo(opt2_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
+            ooo3 = (Greyscale == 1) ? inYV12T.ExtractY.InpaintLogo(InterpMaskT, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8).ConvertToYV12 : inYV12T.InpaintLogo(InterpMaskT, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
+            ooo4 = (Greyscale == 1) ? inYV12T.ExtractY.InpaintLogo(InterpMaskT, sharpness= 45,preBlur=  4,postBlur= 8,radius=16).ConvertToYV12 : inYV12T.InpaintLogo(InterpMaskT, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
 
             if(Greyscale == 1) {
-                loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60", args="opt2_Yc,opt2_lm")
-                loPr2 =                        ConditionalFilter(inYV12, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40", args="opt2_Yc,opt2_lm")
-                LogoInpaPre =                  ConditionalFilter(inYV12, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15", args="opt2_Yc,opt2_lm")
+                loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12T, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60", args="opt2_Yc,opt2_lm")
+                loPr2 =                        ConditionalFilter(inYV12T, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40", args="opt2_Yc,opt2_lm")
+                LogoInpaPre =                  ConditionalFilter(inYV12T, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15", args="opt2_Yc,opt2_lm")
             } else {
-                loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
-                loPr2 =                        ConditionalFilter(inYV12, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
-                LogoInpaPre =                  ConditionalFilter(inYV12, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+                loPr3 = (IntSpd == 3) ? ooo3 : ConditionalFilter(inYV12T, ooo3,  ooo4, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 60 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 60", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+                loPr2 =                        ConditionalFilter(inYV12T, ooo2, loPr3, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 40 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 40", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
+                LogoInpaPre =                  ConditionalFilter(inYV12T, ooo1, loPr2, "opt2_Yc.RT_YPlaneMinMaxDifference(mask=opt2_lm) < 15 && opt2_Uc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15 && opt2_Vc.RT_YPlaneMinMaxDifference(mask=opt2_lmc) < 15", args="opt2_Yc,opt2_Uc,opt2_Vc,opt2_lm,opt2_lmc")
             }
 
-        } else if(Interp > 0) {
-            inin1   = (WholeDeblend == 1 || interpm == -1) ? LogoDeblPre : inYV12
+            LogoInpaPre = (Turbo2 > 1 && WholeDeblend != 1 || Turbo2 > 1 && interpm != -1) ? LogoInpaPre.BicubicResize(locW, locH) : LogoInpaPre
 
-            LogoInpaPre = (Greyscale == 1 && intspd == 1) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 2).ConvertToYV12 :
-            \             (Greyscale == 1 && intspd == 2) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 6).ConvertToYV12 :
-            \             (Greyscale == 1 && intspd == 3) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur=4,radius= 8).ConvertToYV12 :
-            \             (Greyscale == 1 && intspd == 4) ? inin1.ExtractY.InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16).ConvertToYV12 :
-            \             (                  intspd == 1) ? inin1.         InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 2)               :
-            \             (                  intspd == 2) ? inin1.         InpaintLogo(InterpMask, sharpness=1.5,preblur=  0,postblur=0,radius= 6)               :
-            \             (                  intspd == 3) ? inin1.         InpaintLogo(InterpMask, sharpness= 45,preBlur=6.5,postBlur=4,radius= 8)               :
-            \             (                  intspd == 4) ? inin1.         InpaintLogo(InterpMask, sharpness= 45,preBlur=  4,postBlur=8,radius=16)               : nop
+        } else if(Interp > 0) {
+
+            inYV12T     = (Turbo2 > 1 && WholeDeblend != 1 || Turbo2 > 1 && interpm != -1) ? inYV12    .BicubicResize(loTcW, loTcH) : inYV12
+            InterpMaskT = (Turbo2 > 1 && WholeDeblend != 1 || Turbo2 > 1 && interpm != -1) ? InterpMask.PointResize  (loTcW, loTcH) : InterpMask
+
+            inin1   = (WholeDeblend == 1 || interpm == -1) ? LogoDeblPre : inYV12T
+
+            LogoInpaPre = (Greyscale == 1 && intspd == 1) ? inin1.ExtractY.InpaintLogo(InterpMaskT, sharpness=1.5,preblur=  0,postblur=0,radius= 2).ConvertToYV12 :
+            \             (Greyscale == 1 && intspd == 2) ? inin1.ExtractY.InpaintLogo(InterpMaskT, sharpness=1.5,preblur=  0,postblur=0,radius= 6).ConvertToYV12 :
+            \             (Greyscale == 1 && intspd == 3) ? inin1.ExtractY.InpaintLogo(InterpMaskT, sharpness= 45,preBlur=6.5,postBlur=4,radius= 8).ConvertToYV12 :
+            \             (Greyscale == 1 && intspd == 4) ? inin1.ExtractY.InpaintLogo(InterpMaskT, sharpness= 45,preBlur=  4,postBlur=8,radius=16).ConvertToYV12 :
+            \             (                  intspd == 1) ? inin1.         InpaintLogo(InterpMaskT, sharpness=1.5,preblur=  0,postblur=0,radius= 2)               :
+            \             (                  intspd == 2) ? inin1.         InpaintLogo(InterpMaskT, sharpness=1.5,preblur=  0,postblur=0,radius= 6)               :
+            \             (                  intspd == 3) ? inin1.         InpaintLogo(InterpMaskT, sharpness= 45,preBlur=6.5,postBlur=4,radius= 8)               :
+            \             (                  intspd == 4) ? inin1.         InpaintLogo(InterpMaskT, sharpness= 45,preBlur=  4,postBlur=8,radius=16)               : nop
+
+            LogoInpaPre = (Turbo2 > 1 && WholeDeblend != 1 || Turbo2 > 1 && interpm != -1) ? LogoInpaPre.BicubicResize(locW, locH) : LogoInpaPre
         }
 
         if(Optimize2 > 0 && Interp != 0) {
@@ -2440,36 +2468,42 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
 
     } else if(automask == 0 && mode == "inpaint" && Show < 3 && Optimize1 > 0) {
 
-        opt_bm  = Imgmask.ConvertToY8(matrix="PC.709").MTballoon2PX(3)
+        inYV12T     = (Turbo2 > 1) ? inYV12    .BicubicResize(loTcW, loTcH) : inYV12
+        OpaqueMaskT = (Turbo2 > 1) ? OpaqueMask.PointResize  (loTcW, loTcH) : OpaqueMask
+        ImgmaskT    = (Turbo2 > 1) ? Imgmask   .PointResize  (loTcW, loTcH) : Imgmask
+
+        opt_bm  = ImgmaskT.ConvertToY8(matrix="PC.709").MTballoon2PX(3)
         opt_m   = opt_bm.MTballoon2PX(6).mt_makediff(opt_bm).mt_binarize()
         opt_mc  = opt_m.PointResize(LocW/2, LocH/2)
-        opt_cb  = inYV12.Blur(1.58)
+        opt_cb  = inYV12T.Blur(1.58)
         opt_lm  = opt_m .Loop(clpFC)
         opt_lmc = opt_mc.Loop(clpFC)
         opt_Yc  = opt_cb.ExtractY
         opt_Uc  = opt_cb.UtoY8
         opt_Vc  = opt_cb.VtoY8
 
-        oo1 = (Greyscale == 1) ? opt_cb.ExtractY.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2).ConvertToYV12 : opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
-        oo2 = (Greyscale == 1) ? opt_cb.ExtractY.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 4).ConvertToYV12 : opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 4)
-        oo3 = (Greyscale == 1) ? opt_cb.ExtractY.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6).ConvertToYV12 : opt_cb.InpaintLogo(opt_bm    , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
-        oo4 = (Greyscale == 1) ? inYV12.ExtractY.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8).ConvertToYV12 : inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
-        oo5 = (Greyscale == 1) ? inYV12.ExtractY.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16).ConvertToYV12 : inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
-        oo6 = (Greyscale == 1) ? inYV12.ExtractY.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur=12,radius=16).ConvertToYV12 : inYV12.InpaintLogo(OpaqueMask, sharpness= 45,preBlur=  4,postBlur=12,radius=16)
+        oo1 = (Greyscale == 1) ? opt_cb .ExtractY.InpaintLogo(opt_bm     , sharpness=1.5,preblur=  0,postblur= 0,radius= 2).ConvertToYV12 : opt_cb .InpaintLogo(opt_bm     , sharpness=1.5,preblur=  0,postblur= 0,radius= 2)
+        oo2 = (Greyscale == 1) ? opt_cb .ExtractY.InpaintLogo(opt_bm     , sharpness=1.5,preblur=  0,postblur= 0,radius= 4).ConvertToYV12 : opt_cb .InpaintLogo(opt_bm     , sharpness=1.5,preblur=  0,postblur= 0,radius= 4)
+        oo3 = (Greyscale == 1) ? opt_cb .ExtractY.InpaintLogo(opt_bm     , sharpness=1.5,preblur=  0,postblur= 0,radius= 6).ConvertToYV12 : opt_cb .InpaintLogo(opt_bm     , sharpness=1.5,preblur=  0,postblur= 0,radius= 6)
+        oo4 = (Greyscale == 1) ? inYV12T.ExtractY.InpaintLogo(OpaqueMaskT, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8).ConvertToYV12 : inYV12T.InpaintLogo(OpaqueMaskT, sharpness= 45,preBlur=6.5,postBlur= 4,radius= 8)
+        oo5 = (Greyscale == 1) ? inYV12T.ExtractY.InpaintLogo(OpaqueMaskT, sharpness= 45,preBlur=  4,postBlur= 8,radius=16).ConvertToYV12 : inYV12T.InpaintLogo(OpaqueMaskT, sharpness= 45,preBlur=  4,postBlur= 8,radius=16)
+        oo6 = (Greyscale == 1) ? inYV12T.ExtractY.InpaintLogo(OpaqueMaskT, sharpness= 45,preBlur=  4,postBlur=12,radius=16).ConvertToYV12 : inYV12T.InpaintLogo(OpaqueMaskT, sharpness= 45,preBlur=  4,postBlur=12,radius=16)
 
         if(Greyscale == 1) {
-            loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45", args="opt_Yc,opt_lm")
-            loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35", args="opt_Yc,opt_lm")
-            loIn3 =                       ConditionalFilter(inYV12, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20", args="opt_Yc,opt_lm")
-            loIn2 =                       ConditionalFilter(inYV12, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10", args="opt_Yc,opt_lm")
-            LogoInpaint  =                ConditionalFilter(inYV12, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6", args="opt_Yc,opt_lm")
+            loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12T, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45", args="opt_Yc,opt_lm")
+            loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12T, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35", args="opt_Yc,opt_lm")
+            loIn3 =                       ConditionalFilter(inYV12T, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20", args="opt_Yc,opt_lm")
+            loIn2 =                       ConditionalFilter(inYV12T, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10", args="opt_Yc,opt_lm")
+            LogoInpaint  =                ConditionalFilter(inYV12T, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6", args="opt_Yc,opt_lm")
         } else {
-            loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-            loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-            loIn3 =                       ConditionalFilter(inYV12, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-            loIn2 =                       ConditionalFilter(inYV12, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
-            LogoInpaint  =                ConditionalFilter(inYV12, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn5 = (Turbo == -1) ? oo5 : ConditionalFilter(inYV12T, oo5,   oo6, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 45 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 45", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn4 = (Turbo ==  0) ? oo4 : ConditionalFilter(inYV12T, oo4, loIn5, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 35 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 35", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn3 =                       ConditionalFilter(inYV12T, oo3, loIn4, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 20 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 20", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            loIn2 =                       ConditionalFilter(inYV12T, oo2, loIn3, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) < 10 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) < 10", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
+            LogoInpaint  =                ConditionalFilter(inYV12T, oo1, loIn2, "opt_Yc.RT_YPlaneMinMaxDifference(mask=opt_lm) <  6 && opt_Uc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6 && opt_Vc.RT_YPlaneMinMaxDifference(mask=opt_lmc) <  6", args="opt_Yc,opt_Uc,opt_Vc,opt_lm,opt_lmc")
         }
+
+        LogoInpaint = (Turbo2 > 1) ? LogoInpaint.BicubicResize(locW, locH) : LogoInpaint
     }
 
 
