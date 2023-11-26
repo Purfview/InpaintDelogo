@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.8-test                                                                              #
+#   Version: 3.8-test2                                                                             #
 ##================================================================================================##
 
 
@@ -30,7 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
-# Version 3.8 test            Test new "Turbo2" arg.
+# Version 3.8 test2           Test new "Turbo2" arg.
 #                             WIP: "Turbo2" can work with "Optimize1".
 #                             Fixed: "integer divide by zero" error in AVSInpaint when "mask" is ebmp made by negative "Analyze".
 #
@@ -1736,7 +1736,7 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             Reanalyze  = 0
             Analyze    = (mode == "Inpaint") ? 0 : -2
 
-            LogoColor  = ebmpMasks.Crop(0,0,0,ebmpMasks.Height/3)
+            LogoColor  = ebmpMasks.Crop(0,0,0,ebmpMasks.Height/3).ConvertToRGB24
             LogoAlpha  = ebmpMasks.Crop(0,ebmpMasks.Height/3,0,0).Crop(0,0,0,ebmpMasks.Height/3)
             LogoAlpha  = LogoAlpha.Mask(LogoAlpha)
             ebmpBase   = ebmpMasks.Crop(0,Int(ebmpMasks.Height/1.5),0,0)
