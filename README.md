@@ -44,6 +44,8 @@ TWriteAVI     ( https://github.com/Asd-g/AviSynth-TWriteAVI ).
 x264vfw       ( https://sourceforge.net/projects/mpxplay/files/x264vfw ).
 </code></pre>
  
- https://forum.doom9.org/showthread.php?t=176860
+ Doom9 forum thread: https://forum.doom9.org/showthread.php?t=176860
+
+A script that can extract forced cues from a full subtitle...: https://github.com/pcroland/substoforced
       
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate?hosted_button_id=JF5BEQE3YQGH2)    
