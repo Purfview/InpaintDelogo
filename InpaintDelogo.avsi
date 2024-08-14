@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.8-test2                                                                             #
+#   Version: 3.8-test3                                                                             #
 ##================================================================================================##
 
 
@@ -30,9 +30,10 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
-# Version 3.8 test2           Test new "Turbo2" arg.
+# Version 3.8 test3           Test new "Turbo2" arg.
 #                             WIP: "Turbo2" can work with "Optimize1".
 #                             Fixed: "integer divide by zero" error in AVSInpaint when "mask" is ebmp made by negative "Analyze".
+#                             Fixed: UVAlphaFromY when YAlphaTweak is in use.
 #
 #                             Self note: Why LogoBoth not restricted only to both?
 
@@ -972,7 +973,7 @@ InpaintDelogo( mask="D:\mask.bmp", Automask=0, aMix=0, Loc="100,100,-100,-100", 
 # Val YAlphaExternal    :  Custom Y Alpha clip.
 # Int UVAlphaFromY      :  Make U & V alphas from Y alpha.
 
-# Int "YAlphaTweak",     "UAlphaTweak",     "VAlphaTweak"     :  Tweaks an alpha mask (from -10 to 10; default: 0 [Off]).
+# Int "YAlphaTweak",     "UAlphaTweak",     "VAlphaTweak"     :  Tweaks an alpha mask (from -255 to 10; default: 0 [Off]).
 # Int "YAlphaSolidOuts", "UAlphaSolidOuts", "VAlphaSolidOuts" :  Paints an alpha mask outside logo (from -1 to 255; default: -1 [Off]).
 # Int "YAlphaSolidIns",  "UAlphaSolidIns",  "VAlphaSolidIns"  :  Paints an alpha mask inside logo (from -1 to 255; default: -1 [Off]).
 
@@ -1369,9 +1370,9 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
     YAlphaExternal   = Default (YAlphaExternal  , "")    Assert (!(isInt(YAlphaExternal)  || isFloat(YAlphaExternal)), """"YAlphaExternal" must be clip.""")
                                                          if(isString(YAlphaExternal)) { Assert (!(YAlphaExternal != "") , """"YAlphaExternal" must be clip.""") }
     UVAlphaFromY     = Default (UVAlphaFromY    ,  0)    Assert (!(UVAlphaFromY     <   0 || UVAlphaFromY    >   1), """"UVAlphaFromY" value must be between 0 and 1.""")
-    YAlphaTweak      = Default (YAlphaTweak     ,  0)    Assert (!(YAlphaTweak      < -10 || YAlphaTweak     >  10), """"YAlphaTweak" value must be between -10 and 10.""")
-    UAlphaTweak      = Default (UAlphaTweak     ,  0)    Assert (!(UAlphaTweak      < -10 || UAlphaTweak     >  10), """"UAlphaTweak" value must be between -10 and 10.""")
-    VAlphaTweak      = Default (VAlphaTweak     ,  0)    Assert (!(VAlphaTweak      < -10 || VAlphaTweak     >  10), """"VAlphaTweak" value must be between -10 and 10.""")
+    YAlphaTweak      = Default (YAlphaTweak     ,  0)    Assert (!(YAlphaTweak      < -255 || YAlphaTweak     >  10), """"YAlphaTweak" value must be between -255 and 10.""")
+    UAlphaTweak      = Default (UAlphaTweak     ,  0)    Assert (!(UAlphaTweak      < -255 || UAlphaTweak     >  10), """"UAlphaTweak" value must be between -255 and 10.""")
+    VAlphaTweak      = Default (VAlphaTweak     ,  0)    Assert (!(VAlphaTweak      < -255 || VAlphaTweak     >  10), """"VAlphaTweak" value must be between -255 and 10.""")
     YAlphaSolidOuts  = Default (YAlphaSolidOuts , -1)    Assert (!(YAlphaSolidOuts  <  -1 || YAlphaSolidOuts > 255), """"YAlphaSolidOuts" value must be between -1 and 255.""")
     UAlphaSolidOuts  = Default (UAlphaSolidOuts , -1)    Assert (!(UAlphaSolidOuts  <  -1 || UAlphaSolidOuts > 255), """"UAlphaSolidOuts" value must be between -1 and 255.""")
     VAlphaSolidOuts  = Default (VAlphaSolidOuts , -1)    Assert (!(VAlphaSolidOuts  <  -1 || VAlphaSolidOuts > 255), """"VAlphaSolidOuts" value must be between -1 and 255.""")
@@ -2027,10 +2028,11 @@ function InpaintDelogo ( clip clp, val "mask", string "Loc", string "Mode", int 
             # Customizing masks:
             if(IsClip(YAlphaExternal)) { Assert (YAlphaExternal.width == LocW || YAlphaExternal.height == LocH, """Wrong "YAlphaExternal" resolution.""") }
             LogoAlphaY  = (IsClip(YAlphaExternal)) ? YAlphaExternal.Trim(0,-1).ConvertToY8(matrix="PC.709") : LogoAlphaY
+            LogoAlphaY  = (YAlphaTweak != 0) ? LogoAlphaY.Tweak(bright=YAlphaTweak,coring=false) : LogoAlphaY
+
             LogoAlphaU  = (UVAlphaFromY != 0) ? LogoAlphaY.Spline64Resize(LocW/2, LocH/2) : LogoAlphaU
             LogoAlphaV  = (UVAlphaFromY != 0) ? LogoAlphaY.Spline64Resize(LocW/2, LocH/2) : LogoAlphaV
 
-            LogoAlphaY  = (YAlphaTweak != 0) ? LogoAlphaY.Tweak(bright=YAlphaTweak,coring=false) : LogoAlphaY
             LogoAlphaU  = (UAlphaTweak != 0) ? LogoAlphaU.Tweak(bright=UAlphaTweak,coring=false) : LogoAlphaU
             LogoAlphaV  = (VAlphaTweak != 0) ? LogoAlphaV.Tweak(bright=VAlphaTweak,coring=false) : LogoAlphaV
 
