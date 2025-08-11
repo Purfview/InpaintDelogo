@@ -20,7 +20,7 @@
 
 
 ##================================================================================================##
-#   Version: 3.8-test3                                                                             #
+#   Version: 3.8-test4                                                                             #
 ##================================================================================================##
 
 
@@ -30,7 +30,7 @@
 # GitHub link  : https://github.com/Purfview/InpaintDelogo
 
 
-# Version 3.8 test3           Test new "Turbo2" arg.
+# Version 3.8 test4           Test new "Turbo2" arg.
 #                             WIP: "Turbo2" can work with "Optimize1".
 #                             Fixed: "integer divide by zero" error in AVSInpaint when "mask" is ebmp made by negative "Analyze".
 #                             Fixed: UVAlphaFromY when YAlphaTweak is in use.
@@ -3528,7 +3528,7 @@ Function SubsMask2Img(clip clp, clip "Raw", String "ImgDir", Float "CorrTh", Int
        ImgDirRaw = ImgDirRaw.RevStr
        while  (ImgDirRaw.FindStr("\")==1 || ImgDirRaw.FindStr("/")==1) { ImgDirRaw=ImgDirRaw.MidStr(2)}
        ImgDirRaw = ImgDirRaw.RevStr
-       Assert (ImgDirRaw.Exist,"""Folder for the raw images not found!""")
+       Assert (ImgDirRaw.Exist,"""Folder """"+ImgDirRaw+""""" for the raw images not found!""")
     }
 
     RangeDB = ("~SubsMask2Img_RangeDB_"+RT_LocalTimeString+".DB").RT_GetFullPathName
