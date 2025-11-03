@@ -20,7 +20,7 @@
  or deteriorated parts of images or videos.
  </code></pre>
 
-## If it's too complicated or you want the best results, I can delogo your video for a fee. Contact: Contact: purfview [at] protonmail [dot] com  
+## If it's too complicated or you want the best results, I can delogo your video for a fee. Contact: purfview [at] protonmail [dot] com  
  
 <pre><code> 
 Core requirements:
