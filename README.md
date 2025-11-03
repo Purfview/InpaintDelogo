@@ -19,6 +19,8 @@
   Inpainting refers to the application of sophisticated algorithms to reconstruct of lost
  or deteriorated parts of images or videos.
  </code></pre>
+
+## If it's too complicated or you want the best results, I can delogo your video for a fee.   
  
 <pre><code> 
 Core requirements:
