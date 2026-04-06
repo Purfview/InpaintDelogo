@@ -48,7 +48,7 @@ x264vfw       ( https://sourceforge.net/projects/mpxplay/files/x264vfw ).
  
  Doom9 forum thread: https://forum.doom9.org/showthread.php?t=176860
 
-## Helping scripts:
+## Helper scripts:
 A script that can extract forced cues from a full subtitle: https://github.com/pcroland/substoforced      
 Automatic switching between alternating logos: https://forum.doom9.org/showthread.php?t=186921 
       
